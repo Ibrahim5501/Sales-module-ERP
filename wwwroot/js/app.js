@@ -1,0 +1,1219 @@
+// APPLICATION JS - ERP SELLING MODULE (DEVEXTREME - FRANÇAIS)
+
+// Initialiser la langue de DevExtreme en français
+DevExpress.localization.locale("fr");
+
+// Variables d'état global
+let clientsData = [];
+let produitsData = [];
+let commandesData = [];
+let facturesData = [];
+let activeTab = 'tableau-bord';
+let darkTheme = false;
+let toastInstance = null;
+
+// INITIALISATION DE L'APPLICATION
+$(document).ready(() => {
+    // Initialiser les notifications Toast
+    initToast();
+
+    // Renseigner la date du jour
+    formatCurrentDate();
+
+    // Charger les listes de base et le dashboard
+    chargerToutesLesDonnees();
+
+    // Configurer la navigation SPA
+    setupNavigation();
+
+    // Configurer le bouton de changement de thème
+    setupThemeToggle();
+
+    // Initialiser les widgets de Popups
+    initPopupClient();
+    initPopupArticle();
+    initPopupReglement();
+    initPopupCommande();
+    initPopupDetailCommande();
+
+    // Lier les boutons d'ouverture aux Popups DevExtreme
+    $("#btn-creer-client-dx").on("click", () => {
+        $("#popup-client").dxPopup("instance").show();
+    });
+    $("#btn-creer-article-dx").on("click", () => {
+        $("#popup-article").dxPopup("instance").show();
+    });
+    $("#btn-creer-commande-dx").on("click", () => {
+        ouvrirNouvelleCommandePopup();
+    });
+});
+
+// INITIALISER DX TOAST
+function initToast() {
+    toastInstance = $("#dx-toast").dxToast({
+        displayTime: 3000,
+        position: "bottom right",
+        animation: {
+            show: { type: "slide", duration: 300, from: { position: { my: "right bottom", at: "right bottom", offset: "0 100" } } },
+            hide: { type: "fadeOut", duration: 200 }
+        }
+    }).dxToast("instance");
+}
+
+function showToast(message, isError = false) {
+    if (toastInstance) {
+        toastInstance.option({
+            message: message,
+            type: isError ? "error" : "success"
+        });
+        toastInstance.show();
+    } else {
+        alert(message);
+    }
+}
+
+// FORMATER LA DATE DU JOUR
+function formatCurrentDate() {
+    const options = { day: 'numeric', month: 'long', year: 'numeric' };
+    const dateStr = new Date().toLocaleDateString('fr-FR', options);
+    $("#date-text").text(dateStr);
+}
+
+// NAVIGATION SPA
+function setupNavigation() {
+    $(".nav-item").on("click", function(e) {
+        e.preventDefault();
+        const targetId = $(this).attr("href").substring(1);
+        switchTab(targetId);
+    });
+}
+
+function switchTab(tabId) {
+    activeTab = tabId;
+    
+    // Mettre à jour la classe active sur les liens nav
+    $(".nav-item").removeClass("active");
+    $(`.nav-item[href="#${tabId}"]`).addClass("active");
+
+    // Afficher le bon pane
+    $(".tab-pane").removeClass("active");
+    $(`#pane-${tabId}`).addClass("active");
+
+    // Recharger les données de la vue correspondante
+    if (tabId === 'tableau-bord') {
+        chargerDashboard();
+    } else if (tabId === 'commandes') {
+        chargerCommandes();
+    } else if (tabId === 'factures') {
+        chargerFactures();
+    } else if (tabId === 'clients') {
+        chargerClients();
+    } else if (tabId === 'articles') {
+        chargerProduits();
+    }
+}
+
+// THEME TOGGLE (DARK MODE)
+function setupThemeToggle() {
+    $("#theme-btn").on("click", () => {
+        darkTheme = !darkTheme;
+        $("body").toggleClass("dark-mode", darkTheme);
+        const icon = $("#theme-btn").find("i");
+        
+        if (darkTheme) {
+            icon.attr("class", "fa-solid fa-sun");
+        } else {
+            icon.attr("class", "fa-solid fa-moon");
+        }
+
+        // Si sur le dashboard, rafraîchir pour adapter les couleurs de graphiques
+        if (activeTab === 'tableau-bord') {
+            chargerDashboard();
+        }
+    });
+}
+
+// CHARGEMENT INITIAL DES DONNÉES
+async function chargerToutesLesDonnees() {
+    try {
+        const [clientsRes, produitsRes] = await Promise.all([
+            fetch('/api/clients'),
+            fetch('/api/produits')
+        ]);
+        
+        clientsData = await clientsRes.json();
+        produitsData = await produitsRes.json();
+
+        // Mettre à jour le dashboard au démarrage
+        chargerDashboard();
+    } catch (err) {
+        console.error(err);
+        showToast("Impossible de charger les données du serveur.", true);
+    }
+}
+
+// FORMAT DEVISE HT
+function formatCurrency(val) {
+    return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(val);
+}
+
+// --- VUE TABLEAU DE BORD ---
+async function chargerDashboard() {
+    try {
+        const res = await fetch('/api/tableaubord');
+        const data = await res.json();
+        
+        // Mettre à jour les KPI
+        $("#kpi-ca").text(formatCurrency(data.indicateurs.chiffreAffairesTotal));
+        $("#kpi-commandes").text(data.indicateurs.nombreCommandes);
+        $("#kpi-clients").text(data.indicateurs.clientsActifs);
+        $("#kpi-impayes").text(formatCurrency(data.indicateurs.montantImpaye));
+        $("#kpi-taux-recouvrement").text(`Recouvrement : ${data.indicateurs.tauxRecouvrement}%`);
+        
+        // Alerte badges
+        $("#stock-alert-badge").text(data.indicateurs.alertesStock);
+        $("#stock-alert-count").text(`${data.indicateurs.alertesStock} alerte${data.indicateurs.alertesStock > 1 ? 's' : ''}`);
+
+        // Rendre les graphiques DevExtreme
+        renderDashboardCharts(data);
+
+        // Top Clients (Mini dxDataGrid)
+        $("#grid-top-clients").dxDataGrid({
+            dataSource: data.topClients,
+            columns: [
+                { dataField: "nomClient", caption: "Client", cellTemplate: (container, options) => {
+                    $("<strong>").text(options.value).appendTo(container);
+                }},
+                { dataField: "entreprise", caption: "Entreprise" },
+                { dataField: "totalAchats", caption: "Total Commandé", format: { type: "currency", currency: "EUR" }, alignment: "right" },
+                { dataField: "nombreCommandes", caption: "Commandes", alignment: "center" }
+            ],
+            showBorders: false,
+            showColumnHeaders: true,
+            paging: { enabled: false },
+            scrolling: { mode: "none" }
+        });
+
+        // Alertes stocks
+        const alertsContainer = $("#dashboard-stock-alerts");
+        alertsContainer.empty();
+        const alertProds = produitsData.filter(p => p.quantiteStock <= p.seuilAlerte);
+        if (alertProds.length === 0) {
+            alertsContainer.html(`<div class="text-center text-muted" style="padding:24px;">Tous les stocks sont corrects.</div>`);
+        } else {
+            alertProds.forEach(p => {
+                const enRupture = p.quantiteStock === 0;
+                alertsContainer.append(`
+                    <div class="alert-item ${enRupture ? '' : 'warning'}">
+                        <div class="alert-item-icon"><i class="fa-solid ${enRupture ? 'fa-triangle-exclamation' : 'fa-circle-exclamation'}"></i></div>
+                        <div class="alert-item-details">
+                            <span class="alert-item-title">${p.nom}</span>
+                            <span class="alert-item-meta">SKU: ${p.codeArticle} | Categorie: ${p.categorie}</span>
+                        </div>
+                        <span class="alert-stock-badge">${enRupture ? 'RUPTURE' : p.quantiteStock + ' ' + p.unite}</span>
+                    </div>
+                `);
+            });
+        }
+
+    } catch (err) {
+        console.error(err);
+        showToast("Erreur de chargement du dashboard.", true);
+    }
+}
+
+// RENDU GRAPHIQUES DEVEXTREME
+function renderDashboardCharts(data) {
+    const isDark = $("body").hasClass("dark-mode");
+    const labelColor = isDark ? "#94a3b8" : "#64748b";
+
+    // 1. dxChart - Évolution des ventes & encaissements
+    $("#chart-evolution").dxChart({
+        dataSource: data.evolutionVentes,
+        commonSeriesSettings: {
+            argumentField: "mois",
+            type: "spline",
+            point: { visible: true, size: 8 }
+        },
+        series: [
+            { valueField: "ventes", name: "Ventes facturées (€)", color: "#3b82f6" },
+            { valueField: "encaissements", name: "Règlements encaissés (€)", color: "#10b981" }
+        ],
+        argumentAxis: {
+            label: { font: { family: "Outfit", color: labelColor } },
+            grid: { visible: true, color: isDark ? "#1e293b" : "#f1f5f9" }
+        },
+        valueAxis: {
+            label: { font: { family: "Outfit", color: labelColor } },
+            grid: { visible: true, color: isDark ? "#1e293b" : "#f1f5f9" }
+        },
+        legend: {
+            verticalAlignment: "top",
+            horizontalAlignment: "center",
+            font: { family: "Outfit", color: labelColor }
+        },
+        tooltip: {
+            enabled: true,
+            customizeTooltip: (info) => ({
+                text: `${info.seriesName} : ${formatCurrency(info.value)}`
+            })
+        }
+    });
+
+    // 2. dxPieChart - Répartition par catégorie
+    $("#chart-categories").dxPieChart({
+        dataSource: data.ventesParCategorie,
+        series: [{
+            argumentField: "categorie",
+            valueField: "montant",
+            label: {
+                visible: true,
+                connector: { visible: true },
+                format: "percent",
+                font: { family: "Outfit" }
+            }
+        }],
+        palette: "Soft Pastel",
+        legend: {
+            verticalAlignment: "bottom",
+            horizontalAlignment: "center",
+            font: { family: "Outfit", color: labelColor }
+        },
+        tooltip: {
+            enabled: true,
+            customizeTooltip: (info) => ({
+                text: `${info.argument} : ${formatCurrency(info.value)}`
+            })
+        }
+    });
+}
+
+// --- VUE COMMANDES (dxDataGrid) ---
+async function chargerCommandes() {
+    try {
+        const res = await fetch('/api/commandes');
+        commandesData = await res.json();
+        
+        $("#grid-commandes").dxDataGrid({
+            dataSource: commandesData,
+            allowColumnReordering: true,
+            showBorders: false,
+            searchPanel: { visible: true, width: 260, placeholder: "Rechercher une commande..." },
+            filterRow: { visible: true },
+            headerFilter: { visible: true },
+            paging: { pageSize: 10 },
+            pager: { showPageSizeSelector: true, allowedPageSizes: [5, 10, 20], showInfo: true },
+            columns: [
+                { dataField: "numeroCommande", caption: "N° Commande", width: 140, cellTemplate: (container, options) => {
+                    $("<strong>").text(options.value).appendTo(container);
+                }},
+                { dataField: "nomClient", caption: "Client Facturé" },
+                { dataField: "dateCommande", caption: "Date", dataType: "date", format: "dd/MM/yyyy", width: 120 },
+                { dataField: "statut", caption: "Statut", width: 120, alignment: "center", cellTemplate: renderStatusBadge },
+                { dataField: "montantTotal", caption: "Montant TTC", format: { type: "currency", currency: "EUR" }, alignment: "right", width: 140 },
+                {
+                    caption: "Actions",
+                    alignment: "center",
+                    width: 220,
+                    cellTemplate: renderCommandeActions
+                }
+            ]
+        });
+
+    } catch (err) {
+        console.error(err);
+        showToast("Erreur de chargement des commandes.", true);
+    }
+}
+
+// RENDU BADGE DE STATUT DANS LES GRIDS
+function renderStatusBadge(container, options) {
+    const val = options.value;
+    let badgeClass = 'badge-gray';
+    let label = val;
+    
+    if (val === 'Brouillon') badgeClass = 'badge-gray';
+    else if (val === 'Validee') { badgeClass = 'badge-blue'; label = 'Validée'; }
+    else if (val === 'Facturee') { badgeClass = 'badge-orange'; label = 'Facturée'; }
+    else if (val === 'Cloturee') { badgeClass = 'badge-green'; label = 'Clôturée'; }
+    else if (val === 'Annulee') { badgeClass = 'badge-red'; label = 'Annulée'; }
+    else if (val === 'Payee') { badgeClass = 'badge-green'; label = 'Payée'; }
+    else if (val === 'NonPayee') { badgeClass = 'badge-orange'; label = 'Non Payée'; }
+    else if (val === 'EnRetard') { badgeClass = 'badge-red'; label = 'En Retard'; }
+
+    $(`<span>`).addClass(`badge ${badgeClass}`).text(label).appendTo(container);
+}
+
+// RENDU ACTIONS DES COMMANDES
+function renderCommandeActions(container, options) {
+    const c = options.data;
+    const $wrapper = $("<div style='display:flex; justify-content:center;'>");
+
+    // Bouton Voir Détails
+    $("<a>").addClass("action-btn-dx btn-view")
+        .html("<i class='fa-solid fa-eye'></i> Détails")
+        .on("click", () => ouvrirDetailCommande(c.id))
+        .appendTo($wrapper);
+
+    if (c.statut === 'Brouillon') {
+        // Valider
+        $("<a>").addClass("action-btn-dx btn-approve")
+            .html("<i class='fa-solid fa-check'></i> Valider")
+            .on("click", () => validerCommande(c.id))
+            .appendTo($wrapper);
+        // Annuler
+        $("<a>").addClass("action-btn-dx btn-cancel")
+            .html("<i class='fa-solid fa-xmark'></i> Annuler")
+            .on("click", () => annulerCommande(c.id))
+            .appendTo($wrapper);
+    } else if (c.statut === 'Validee') {
+        // Facturer
+        $("<a>").addClass("action-btn-dx btn-invoice")
+            .html("<i class='fa-solid fa-file-invoice'></i> Facturer")
+            .on("click", () => facturerCommande(c.id))
+            .appendTo($wrapper);
+        // Annuler
+        $("<a>").addClass("action-btn-dx btn-cancel")
+            .html("<i class='fa-solid fa-xmark'></i> Annuler")
+            .on("click", () => annulerCommande(c.id))
+            .appendTo($wrapper);
+    }
+
+    $wrapper.appendTo(container);
+}
+
+// ACTION LOGIQUE DES COMMANDES
+async function validerCommande(id) {
+    if (!confirm("Valider cette commande ? Le stock sera mis à jour.")) return;
+    try {
+        const res = await fetch(`/api/commandes/${id}/valider`, { method: 'POST' });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.message || "Erreur de validation");
+        }
+        showToast("Commande validée ! Le stock est mis à jour.");
+        chargerToutesLesDonnees();
+        chargerCommandes();
+    } catch (err) {
+        showToast(err.message, true);
+    }
+}
+
+async function annulerCommande(id) {
+    if (!confirm("Annuler cette commande ? Le stock validé sera récrédité.")) return;
+    try {
+        const res = await fetch(`/api/commandes/${id}/annuler`, { method: 'POST' });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.message || "Erreur d'annulation");
+        }
+        showToast("Commande annulée.");
+        chargerToutesLesDonnees();
+        chargerCommandes();
+    } catch (err) {
+        showToast(err.message, true);
+    }
+}
+
+async function facturerCommande(id) {
+    try {
+        const res = await fetch(`/api/commandes/${id}/facturer`, { method: 'POST' });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.message || "Erreur de facturation");
+        }
+        const fact = await res.json();
+        showToast(`Facture ${fact.numeroFacture} émise avec succès !`);
+        chargerToutesLesDonnees();
+        chargerCommandes();
+    } catch (err) {
+        showToast(err.message, true);
+    }
+}
+
+// --- DRAWER DÉTAILS COMMANDES (dxPopup) ---
+function initPopupDetailCommande() {
+    $("#popup-detail-commande").dxPopup({
+        title: "Détail du Bon de Commande",
+        width: 550,
+        height: "auto",
+        visible: false,
+        dragEnabled: true,
+        showCloseButton: true,
+        contentTemplate: (container) => {
+            $("<div id='detail-commande-content'>").appendTo(container);
+        }
+    });
+}
+
+async function ouvrirDetailCommande(id) {
+    try {
+        const res = await fetch(`/api/commandes/${id}`);
+        if (!res.ok) throw new Error("Impossible de charger la commande.");
+        const c = await res.json();
+
+        const popup = $("#popup-detail-commande").dxPopup("instance");
+        popup.show();
+
+        const $content = $("#detail-commande-content");
+        $content.empty();
+
+        const dateFormatted = new Date(c.dateCommande).toLocaleDateString('fr-FR');
+        let badgeClass = 'badge-gray';
+        let badgeLabel = c.statut;
+        
+        if (c.statut === 'Brouillon') badgeClass = 'badge-gray';
+        else if (c.statut === 'Validee') { badgeClass = 'badge-blue'; badgeLabel = 'Validée'; }
+        else if (c.statut === 'Facturee') { badgeClass = 'badge-orange'; badgeLabel = 'Facturée'; }
+        else if (c.statut === 'Cloturee') { badgeClass = 'badge-green'; badgeLabel = 'Clôturée'; }
+        else if (c.statut === 'Annulee') { badgeClass = 'badge-red'; badgeLabel = 'Annulée'; }
+
+        let linesHtml = '';
+        c.lignes.forEach(l => {
+            const remiseStr = l.tauxRemise > 0 ? `(-${l.tauxRemise}%)` : '';
+            linesHtml += `
+                <div class="detail-item-row" style="display:flex; justify-content:space-between; padding:8px 12px; background:var(--bg-primary); border-radius:4px; margin-bottom:8px; font-size:13px;">
+                    <div style="display:flex; flex-direction:column;">
+                        <strong>${l.nomProduit}</strong>
+                        <span style="font-size:11px; color:var(--text-muted);">${l.quantite} x ${formatCurrency(l.prixUnitaire)} ${remiseStr}</span>
+                    </div>
+                    <strong style="align-self:center;">${formatCurrency(l.montantTotal)}</strong>
+                </div>
+            `;
+        });
+
+        $content.append(`
+            <div style="margin-bottom: 20px;">
+                <h4 style="font-size:11px; text-transform:uppercase; color:var(--text-light); margin-bottom:6px; font-weight:700;">Informations Générales</h4>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; padding:12px; background:var(--bg-primary); border:1px solid var(--border-color); border-radius:8px; font-size:13px;">
+                    <div><span style="color:var(--text-muted);">N° Commande:</span> <strong>${c.numeroCommande}</strong></div>
+                    <div><span style="color:var(--text-muted);">Statut:</span> <span class="badge ${badgeClass}">${badgeLabel}</span></div>
+                    <div><span style="color:var(--text-muted);">Date:</span> <strong>${dateFormatted}</strong></div>
+                    <div><span style="color:var(--text-muted);">Total TTC:</span> <strong class="text-primary">${formatCurrency(c.montantTotal)}</strong></div>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <h4 style="font-size:11px; text-transform:uppercase; color:var(--text-light); margin-bottom:6px; font-weight:700;">Client</h4>
+                <div style="padding:12px; background:var(--bg-primary); border:1px solid var(--border-color); border-radius:8px; font-size:13px;">
+                    <strong>${c.nomClient}</strong>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <h4 style="font-size:11px; text-transform:uppercase; color:var(--text-light); margin-bottom:6px; font-weight:700;">Lignes de Commande</h4>
+                <div>${linesHtml}</div>
+            </div>
+
+            ${c.notes ? `
+            <div>
+                <h4 style="font-size:11px; text-transform:uppercase; color:var(--text-light); margin-bottom:6px; font-weight:700;">Notes</h4>
+                <div style="padding:12px; background:var(--warning-light); border-left:3px solid var(--warning); border-radius:4px; font-size:13px; color:#92400e;">${c.notes}</div>
+            </div>
+            ` : ''}
+        `);
+
+    } catch (err) {
+        showToast(err.message, true);
+    }
+}
+
+// --- VUE FACTURES (dxDataGrid) ---
+async function chargerFactures() {
+    try {
+        const res = await fetch('/api/factures');
+        facturesData = await res.json();
+        
+        $("#grid-factures").dxDataGrid({
+            dataSource: facturesData,
+            showBorders: false,
+            searchPanel: { visible: true, width: 260, placeholder: "Rechercher une facture..." },
+            filterRow: { visible: true },
+            headerFilter: { visible: true },
+            paging: { pageSize: 10 },
+            columns: [
+                { dataField: "numeroFacture", caption: "N° Facture", cellTemplate: (container, options) => {
+                    $("<strong>").text(options.value).appendTo(container);
+                }},
+                { dataField: "numeroCommande", caption: "Commande" },
+                { dataField: "nomClient", caption: "Client" },
+                { dataField: "dateFacture", caption: "Date Émission", dataType: "date", format: "dd/MM/yyyy" },
+                { dataField: "dateEcheance", caption: "Date Échéance", dataType: "date", format: "dd/MM/yyyy" },
+                { dataField: "statut", caption: "Statut", alignment: "center", cellTemplate: renderStatusBadge },
+                { dataField: "montantTotal", caption: "Total TTC", format: { type: "currency", currency: "EUR" }, alignment: "right" },
+                { dataField: "montantRestant", caption: "Reste à Payer", alignment: "right", cellTemplate: (container, options) => {
+                    const r = options.data.montantTotal - options.data.montantPaye;
+                    const $span = $("<span>").text(formatCurrency(r));
+                    if (r > 0) $span.addClass("text-danger font-semibold");
+                    $span.appendTo(container);
+                }},
+                {
+                    caption: "Actions",
+                    alignment: "center",
+                    width: 140,
+                    cellTemplate: (container, options) => {
+                        const f = options.data;
+                        const reste = f.montantTotal - f.montantPaye;
+                        if (f.statut !== 'Payee' && f.statut !== 'Annulee') {
+                            $("<button>").addClass("btn btn-secondary btn-small")
+                                .html("<i class='fa-solid fa-cash-register'></i> Régler")
+                                .on("click", () => ouvrirModalPaiement(f.id, f.numeroFacture, reste))
+                                .appendTo(container);
+                        } else {
+                            $("<span style='color:var(--text-light); font-size:12px;'><i class='fa-solid fa-circle-check text-success'></i> Clôturée</span>")
+                                .appendTo(container);
+                        }
+                    }
+                }
+            ]
+        });
+    } catch (err) {
+        console.error(err);
+        showToast("Erreur de chargement des factures.", true);
+    }
+}
+
+// REGLEMENT DE FACTURE (POPUP)
+function initPopupReglement() {
+    $("#popup-reglement").dxPopup({
+        title: "Enregistrer un Règlement",
+        width: 380,
+        height: "auto",
+        visible: false,
+        dragEnabled: true,
+        showCloseButton: true,
+        contentTemplate: (container) => {
+            container.append(`
+                <div style="padding: 12px; background:var(--bg-primary); border:1px solid var(--border-color); border-radius:8px; margin-bottom:16px; font-size:13px;">
+                    <div><strong>Facture :</strong> <span id="dx-regle-ref">FAC-XXXX</span></div>
+                    <div style="margin-top:4px;"><strong>Reste à régler :</strong> <span id="dx-regle-reste" class="text-danger font-semibold">0,00 €</span></div>
+                </div>
+                <div id="dx-form-reglement"></div>
+            `);
+        },
+        toolbarItems: [
+            {
+                shortcut: "done",
+                location: "after",
+                toolbar: "bottom",
+                widget: "dxButton",
+                options: {
+                    text: "Enregistrer",
+                    type: "success",
+                    onClick: () => soumettreReglement()
+                }
+            },
+            {
+                shortcut: "cancel",
+                location: "after",
+                toolbar: "bottom",
+                widget: "dxButton",
+                options: {
+                    text: "Annuler",
+                    onClick: () => $("#popup-reglement").dxPopup("instance").hide()
+                }
+            }
+        ]
+    });
+}
+
+let activeReglementFactId = 0;
+function ouvrirModalPaiement(id, ref, reste) {
+    activeReglementFactId = id;
+    
+    $("#dx-regle-ref").text(ref);
+    $("#dx-regle-reste").text(formatCurrency(reste));
+
+    // Initialiser le formulaire
+    $("#dx-form-reglement").dxForm({
+        formData: { montant: reste },
+        items: [
+            {
+                dataField: "montant",
+                label: { text: "Montant perçu (€)" },
+                editorType: "dxNumberBox",
+                editorOptions: {
+                    min: 0.01,
+                    max: reste,
+                    format: "#,##0.00 €",
+                    showClearButton: true
+                },
+                validationRules: [
+                    { type: "required", message: "Le montant est requis." },
+                    { type: "range", min: 0.01, max: reste, message: "Le montant doit être compris entre 0,01 et le reste à payer." }
+                ]
+            }
+        ]
+    });
+
+    $("#popup-reglement").dxPopup("instance").show();
+}
+
+async function soumettreReglement() {
+    const form = $("#dx-form-reglement").dxForm("instance");
+    const validationResult = form.validate();
+    
+    if (!validationResult.isValid) return;
+    
+    const formData = form.option("formData");
+
+    try {
+        const res = await fetch(`/api/factures/${activeReglementFactId}/regler`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ montant: formData.montant })
+        });
+
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.message || "Erreur lors du règlement.");
+        }
+
+        showToast("Règlement enregistré avec succès !");
+        $("#popup-reglement").dxPopup("instance").hide();
+        
+        chargerToutesLesDonnees();
+        chargerFactures();
+    } catch (err) {
+        showToast(err.message, true);
+    }
+}
+
+// --- VUE CLIENTS (dxDataGrid) ---
+async function chargerClients() {
+    try {
+        const res = await fetch('/api/clients');
+        clientsData = await res.json();
+
+        $("#grid-clients").dxDataGrid({
+            dataSource: clientsData,
+            showBorders: false,
+            searchPanel: { visible: true, width: 260, placeholder: "Rechercher un client..." },
+            filterRow: { visible: true },
+            groupPanel: { visible: true, placeholder: "Faites glisser une colonne pour grouper" },
+            paging: { pageSize: 10 },
+            columns: [
+                { dataField: "entreprise", caption: "Entreprise / Raison Sociale", cellTemplate: (container, options) => {
+                    $("<strong>").text(options.value).appendTo(container);
+                }},
+                { dataField: "nom", caption: "Nom Contact" },
+                { dataField: "email", caption: "Email" },
+                { dataField: "telephone", caption: "Téléphone", width: 140 },
+                { dataField: "adresse", caption: "Adresse Postale" },
+                { dataField: "limiteCredit", caption: "Limite Crédit", format: { type: "currency", currency: "EUR" }, alignment: "right", width: 120 },
+                { dataField: "solde", caption: "Solde Dû", format: { type: "currency", currency: "EUR" }, alignment: "right", width: 120, cellTemplate: (container, options) => {
+                    const solde = options.value;
+                    const $span = $("<span>").text(formatCurrency(solde));
+                    if (solde > 0) $span.addClass("text-danger font-semibold");
+                    $span.appendTo(container);
+                }},
+                { dataField: "actif", caption: "Statut", dataType: "boolean", width: 100, alignment: "center", cellTemplate: (container, options) => {
+                    const active = options.value;
+                    $("<span>").addClass(`badge ${active ? 'badge-green' : 'badge-gray'}`)
+                        .text(active ? 'ACTIF' : 'INACTIF')
+                        .appendTo(container);
+                }}
+            ]
+        });
+    } catch (err) {
+        console.error(err);
+        showToast("Erreur de chargement des clients.", true);
+    }
+}
+
+// CREER CLIENT (POPUP + FORMULAIRE DX)
+function initPopupClient() {
+    $("#popup-client").dxPopup({
+        title: "Créer une fiche Client",
+        width: 500,
+        height: "auto",
+        visible: false,
+        dragEnabled: true,
+        showCloseButton: true,
+        contentTemplate: (container) => {
+            $("<div id='dx-form-client'>").appendTo(container);
+        },
+        toolbarItems: [
+            {
+                shortcut: "done",
+                location: "after",
+                toolbar: "bottom",
+                widget: "dxButton",
+                options: {
+                    text: "Enregistrer",
+                    type: "default",
+                    onClick: () => soumettreClient()
+                }
+            },
+            {
+                shortcut: "cancel",
+                location: "after",
+                toolbar: "bottom",
+                widget: "dxButton",
+                options: {
+                    text: "Annuler",
+                    onClick: () => $("#popup-client").dxPopup("instance").hide()
+                }
+            }
+        ],
+        onShowing: () => {
+            // Initialiser ou réinitialiser le formulaire
+            $("#dx-form-client").dxForm({
+                formData: { nom: "", entreprise: "", email: "", telephone: "", adresse: "", limiteCredit: 15000, actif: true },
+                labelLocation: "top",
+                items: [
+                    { dataField: "nom", label: { text: "Nom du Contact Principal" }, validationRules: [{ type: "required", message: "Le nom est requis." }] },
+                    { dataField: "entreprise", label: { text: "Raison Sociale / Entreprise" }, validationRules: [{ type: "required", message: "L'entreprise est requise." }] },
+                    { dataField: "email", label: { text: "Adresse E-mail" }, validationRules: [{ type: "required", message: "L'email est requis." }, { type: "email", message: "Format d'email invalide." }] },
+                    { dataField: "telephone", label: { text: "Téléphone" } },
+                    { dataField: "adresse", label: { text: "Adresse Postale" } },
+                    { dataField: "limiteCredit", label: { text: "Limite de Crédit (€)" }, editorType: "dxNumberBox", editorOptions: { min: 0, format: "#,##0 €" } },
+                    { dataField: "actif", label: { text: "Fiche active ?" }, editorType: "dxSwitch" }
+                ]
+            });
+        }
+    });
+}
+
+async function soumettreClient() {
+    const form = $("#dx-form-client").dxForm("instance");
+    const result = form.validate();
+    
+    if (!result.isValid) return;
+    
+    const payload = form.option("formData");
+
+    try {
+        const res = await fetch('/api/clients', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) throw new Error("Erreur serveur lors de la création.");
+        
+        showToast("Nouveau client créé avec succès !");
+        $("#popup-client").dxPopup("instance").hide();
+        
+        chargerToutesLesDonnees();
+        if (activeTab === 'clients') chargerClients();
+    } catch (err) {
+        showToast(err.message, true);
+    }
+}
+
+// --- VUE ARTICLES (dxDataGrid) ---
+async function chargerProduits() {
+    try {
+        const res = await fetch('/api/produits');
+        produitsData = await res.json();
+
+        $("#grid-articles").dxDataGrid({
+            dataSource: produitsData,
+            showBorders: false,
+            searchPanel: { visible: true, width: 260, placeholder: "Rechercher un article..." },
+            filterRow: { visible: true },
+            headerFilter: { visible: true },
+            paging: { pageSize: 10 },
+            columns: [
+                { dataField: "codeArticle", caption: "SKU / Code", width: 140, cellTemplate: (container, options) => {
+                    $("<strong style='font-family:monospace;'>").text(options.value).appendTo(container);
+                }},
+                { dataField: "nom", caption: "Désignation" },
+                { dataField: "categorie", caption: "Catégorie", width: 150 },
+                { dataField: "description", caption: "Description commerciale" },
+                { dataField: "prixUnitaire", caption: "Prix Unit. HT", format: { type: "currency", currency: "EUR" }, alignment: "right", width: 120 },
+                { dataField: "quantiteStock", caption: "Jauge de Stock", alignment: "center", width: 180, cellTemplate: renderStockProgressBar },
+                { dataField: "seuilAlerte", caption: "Alerte Seuil", width: 100, alignment: "center" }
+            ]
+        });
+    } catch (err) {
+        console.error(err);
+        showToast("Erreur de chargement des articles.", true);
+    }
+}
+
+// RENDU CELLULE JAUGE DE STOCK
+function renderStockProgressBar(container, options) {
+    const p = options.data;
+    const stock = p.quantiteStock;
+    const seuil = p.seuilAlerte;
+    const sousAlerte = stock <= seuil;
+    const enRupture = stock === 0;
+    
+    let stockFillClass = '';
+    if (enRupture) stockFillClass = 'danger';
+    else if (sousAlerte) stockFillClass = 'warning';
+    
+    const pct = Math.min((stock / 50) * 100, 100);
+    
+    const $wrapper = $("<div style='display:flex; flex-direction:column; gap:4px; width:100%;'>");
+    $wrapper.append(`
+        <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:600;">
+            <span>${stock} ${p.unite}</span>
+            ${enRupture ? '<span class="text-danger" style="font-size:10px;">RUPTURE</span>' : (sousAlerte ? '<span class="text-warning" style="font-size:10px;">BAS</span>' : '')}
+        </div>
+        <div class="stock-bar-bg" style="height:6px; background-color:var(--border-color); border-radius:10px; overflow:hidden; width:100%;">
+            <div class="stock-bar-fill ${stockFillClass}" style="height:100%; width:${pct}%; border-radius:10px;"></div>
+        </div>
+    `);
+    $wrapper.appendTo(container);
+}
+
+// CREER ARTICLE (POPUP DX)
+function initPopupArticle() {
+    $("#popup-article").dxPopup({
+        title: "Ajouter un article au catalogue",
+        width: 520,
+        height: "auto",
+        visible: false,
+        dragEnabled: true,
+        showCloseButton: true,
+        contentTemplate: (container) => {
+            $("<div id='dx-form-article'>").appendTo(container);
+        },
+        toolbarItems: [
+            {
+                shortcut: "done",
+                location: "after",
+                toolbar: "bottom",
+                widget: "dxButton",
+                options: {
+                    text: "Créer l'Article",
+                    type: "default",
+                    onClick: () => soumettreArticle()
+                }
+            },
+            {
+                shortcut: "cancel",
+                location: "after",
+                toolbar: "bottom",
+                widget: "dxButton",
+                options: {
+                    text: "Annuler",
+                    onClick: () => $("#popup-article").dxPopup("instance").hide()
+                }
+            }
+        ],
+        onShowing: () => {
+            $("#dx-form-article").dxForm({
+                formData: { codeArticle: "", nom: "", categorie: "Électronique", prixUnitaire: 0, quantiteStock: 10, unite: "Unité", seuilAlerte: 3, description: "" },
+                labelLocation: "top",
+                items: [
+                    { dataField: "codeArticle", label: { text: "Code Unique (SKU)" }, validationRules: [{ type: "required", message: "Le code SKU est requis." }] },
+                    { dataField: "nom", label: { text: "Nom de l'Article" }, validationRules: [{ type: "required", message: "La désignation est requise." }] },
+                    { 
+                        dataField: "categorie", 
+                        label: { text: "Catégorie" }, 
+                        editorType: "dxSelectBox", 
+                        editorOptions: { items: ["Électronique", "Mobilier", "Accessoires", "Fournitures"] } 
+                    },
+                    { dataField: "prixUnitaire", label: { text: "Prix Unitaire HT (€)" }, editorType: "dxNumberBox", editorOptions: { min: 0.01, format: "#,##0.00 €" }, validationRules: [{ type: "required", message: "Le prix est requis." }] },
+                    { dataField: "quantiteStock", label: { text: "Stock Initial" }, editorType: "dxNumberBox", editorOptions: { min: 0 } },
+                    { dataField: "unite", label: { text: "Unité de vente" } },
+                    { dataField: "seuilAlerte", label: { text: "Seuil d'alerte stock" }, editorType: "dxNumberBox", editorOptions: { min: 0 } },
+                    { dataField: "description", label: { text: "Description technique" }, editorType: "dxTextArea", editorOptions: { rows: 2 } }
+                ]
+            });
+        }
+    });
+}
+
+async function soumettreArticle() {
+    const form = $("#dx-form-article").dxForm("instance");
+    const result = form.validate();
+    
+    if (!result.isValid) return;
+    
+    const payload = form.option("formData");
+
+    try {
+        const res = await fetch('/api/produits', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.message || "Erreur de création de l'article.");
+        }
+        
+        showToast("Article créé avec succès !");
+        $("#popup-article").dxPopup("instance").hide();
+        
+        chargerToutesLesDonnees();
+        if (activeTab === 'articles') chargerProduits();
+    } catch (err) {
+        showToast(err.message, true);
+    }
+}
+
+// --- WIZARD CRÉATION COMMANDE (POPUP AVANCÉ dxPopup + dxForm + dxDataGrid) ---
+function initPopupCommande() {
+    $("#popup-commande").dxPopup({
+        title: "Créer un Bon de Commande client",
+        width: 800,
+        height: "auto",
+        visible: false,
+        dragEnabled: true,
+        showCloseButton: true,
+        contentTemplate: (container) => {
+            container.append(`
+                <div id="dx-form-commande-header"></div>
+                <div style="margin-top:20px; border-top:1px dashed var(--border-color); padding-top:15px;">
+                    <h4 style="font-weight:700; font-size:13.5px; margin-bottom:8px;"><i class="fa-solid fa-list"></i> Lignes de Commande</h4>
+                    <div id="dx-grid-commande-lines"></div>
+                </div>
+                <div class="order-summary-box" style="margin-top:15px; margin-left:auto; width:260px; padding:10px; background:var(--bg-primary); border:1px solid var(--border-color); border-radius:6px; font-size:12.5px;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
+                        <span>Total HT :</span>
+                        <span id="cmd-summary-subtotal">0,00 €</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
+                        <span>TVA (20%) :</span>
+                        <span id="cmd-summary-tva">0,00 €</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; font-weight:700; border-top:1px solid var(--border-color); padding-top:4px; color:var(--primary); font-size:13.5px;">
+                        <span>Montant TTC :</span>
+                        <span id="cmd-summary-total">0,00 €</span>
+                    </div>
+                </div>
+            `);
+        },
+        toolbarItems: [
+            {
+                shortcut: "done",
+                location: "after",
+                toolbar: "bottom",
+                widget: "dxButton",
+                options: {
+                    text: "Créer Commande (Brouillon)",
+                    type: "default",
+                    onClick: () => soumettreCommande()
+                }
+            },
+            {
+                shortcut: "cancel",
+                location: "after",
+                toolbar: "bottom",
+                widget: "dxButton",
+                options: {
+                    text: "Annuler",
+                    onClick: () => $("#popup-commande").dxPopup("instance").hide()
+                }
+            }
+        ]
+    });
+}
+
+let internalCommandeLines = [];
+function ouvrirNouvelleCommandePopup() {
+    internalCommandeLines = [];
+    
+    // Réinitialiser les totaux à l'affichage
+    $("#cmd-summary-subtotal").text("0,00 €");
+    $("#cmd-summary-tva").text("0,00 €");
+    $("#cmd-summary-total").text("0,00 €");
+
+    const popup = $("#popup-commande").dxPopup("instance");
+    popup.show();
+
+    // 1. Initialiser le formulaire d'en-tête
+    $("#dx-form-commande-header").dxForm({
+        formData: { clientId: null, notes: "" },
+        colCount: 2,
+        items: [
+            {
+                dataField: "clientId",
+                label: { text: "Client à facturer" },
+                editorType: "dxSelectBox",
+                editorOptions: {
+                    dataSource: clientsData.filter(c => c.actif),
+                    valueExpr: "id",
+                    displayExpr: (item) => item ? `${item.nom} (${item.entreprise})` : "",
+                    searchEnabled: true,
+                    placeholder: "-- Choisir le client --"
+                },
+                validationRules: [{ type: "required", message: "Le choix du client est obligatoire." }]
+            },
+            {
+                dataField: "notes",
+                label: { text: "Notes / Delivery Instructions" },
+                editorType: "dxTextBox",
+                editorOptions: { placeholder: "Ex: Livraison quai B, appeler avant..." }
+            }
+        ]
+    });
+
+    // 2. Initialiser la grille des lignes d'articles
+    $("#dx-grid-commande-lines").dxDataGrid({
+        dataSource: internalCommandeLines,
+        editing: {
+            mode: "cell",
+            allowAdding: true,
+            allowUpdating: true,
+            allowDeleting: true,
+            newRowPosition: "last"
+        },
+        showBorders: true,
+        height: 180,
+        scrolling: { mode: "virtual" },
+        columns: [
+            {
+                dataField: "produitId",
+                caption: "Article / Produit",
+                lookup: {
+                    dataSource: produitsData,
+                    valueExpr: "id",
+                    displayExpr: (item) => item ? `${item.nom} (Stock: ${item.quantiteStock})` : ""
+                },
+                validationRules: [{ type: "required", message: "L'article est requis." }],
+                // Quand on choisit le produit, auto-remplir les données de prix de la ligne
+                setCellValue: (rowData, value) => {
+                    rowData.produitId = value;
+                    const prod = produitsData.find(p => p.id === value);
+                    if (prod) {
+                        rowData.nomProduit = prod.nom;
+                        rowData.prixUnitaire = prod.prixUnitaire;
+                        rowData.quantite = 1;
+                        rowData.tauxRemise = 0;
+                    }
+                }
+            },
+            {
+                dataField: "prixUnitaire",
+                caption: "Prix Unit. HT",
+                dataType: "number",
+                format: { type: "currency", currency: "EUR" },
+                allowEditing: false,
+                width: 100,
+                alignment: "right"
+            },
+            {
+                dataField: "quantite",
+                caption: "Qté",
+                dataType: "number",
+                width: 70,
+                alignment: "center",
+                editorOptions: { min: 1 },
+                validationRules: [{ type: "required" }]
+            },
+            {
+                dataField: "tauxRemise",
+                caption: "Remise (%)",
+                dataType: "number",
+                width: 90,
+                alignment: "center",
+                editorOptions: { min: 0, max: 100 }
+            },
+            {
+                caption: "Total HT",
+                dataType: "number",
+                format: { type: "currency", currency: "EUR" },
+                allowEditing: false,
+                alignment: "right",
+                width: 110,
+                // Cellule calculée dynamiquement à la saisie
+                calculateCellValue: (rowData) => {
+                    if (!rowData.prixUnitaire) return 0;
+                    const price = rowData.prixUnitaire;
+                    const qty = rowData.quantite || 1;
+                    const disc = rowData.tauxRemise || 0;
+                    return (price - (price * (disc / 100))) * qty;
+                }
+            }
+        ],
+        // Recalculer les totaux de la commande à chaque modification
+        onRowInserted: () => recalculerTotauxCommandePopup(),
+        onRowUpdated: () => recalculerTotauxCommandePopup(),
+        onRowRemoved: () => recalculerTotauxCommandePopup()
+    });
+}
+
+function recalculerTotauxCommandePopup() {
+    const grid = $("#dx-grid-commande-lines").dxDataGrid("instance");
+    // Obtenir le contenu brut
+    const items = grid.option("dataSource") || [];
+    
+    let subtotal = 0;
+    items.forEach(line => {
+        if (line.prixUnitaire) {
+            const price = line.prixUnitaire;
+            const qty = line.quantite || 1;
+            const disc = line.tauxRemise || 0;
+            subtotal += (price - (price * (disc / 100))) * qty;
+        }
+    });
+
+    const tva = subtotal * 0.2; // 20%
+    const total = subtotal + tva;
+
+    $("#cmd-summary-subtotal").text(formatCurrency(subtotal));
+    $("#cmd-summary-tva").text(formatCurrency(tva));
+    $("#cmd-summary-total").text(formatCurrency(total));
+}
+
+async function soumettreCommande() {
+    const headerForm = $("#dx-form-commande-header").dxForm("instance");
+    const headerValidation = headerForm.validate();
+    
+    if (!headerValidation.isValid) return;
+
+    const grid = $("#dx-grid-commande-lines").dxDataGrid("instance");
+    
+    // S'assurer que le mode édition est validé
+    grid.closeEditCell();
+    
+    const lines = grid.option("dataSource") || [];
+    if (lines.length === 0) {
+        showToast("Veuillez saisir au moins une ligne d'article.", true);
+        return;
+    }
+
+    // Vérifier les lignes valides
+    let aDesErreurs = false;
+    lines.forEach(l => {
+        if (!l.produitId || !l.quantite || l.quantite <= 0) {
+            aDesErreurs = true;
+        }
+    });
+
+    if (aDesErreurs) {
+        showToast("Veuillez corriger les erreurs dans le tableau des articles.", true);
+        return;
+    }
+
+    // Construire le payload
+    const headerData = headerForm.option("formData");
+    const payload = {
+        clientId: headerData.clientId,
+        notes: headerData.notes || "",
+        lignes: lines.map(l => ({
+            produitId: l.produitId,
+            quantite: l.quantite,
+            tauxRemise: l.tauxRemise || 0
+        }))
+    };
+
+    try {
+        const res = await fetch('/api/commandes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.message || "Erreur de création de commande.");
+        }
+
+        showToast("Commande créée en statut Brouillon !");
+        $("#popup-commande").dxPopup("instance").hide();
+        
+        chargerToutesLesDonnees();
+        if (activeTab === 'commandes') chargerCommandes();
+    } catch (err) {
+        showToast(err.message, true);
+    }
+}
