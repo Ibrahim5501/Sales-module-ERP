@@ -42,6 +42,8 @@ namespace example2.DTOs
         public decimal MontantTTC { get; set; }
 
         public int Id_Partenaire { get; set; }
+        
+        public string? NomPartenaire { get; set; }
 
         public List<DevisLigneDto> Lignes { get; set; } = new();
     }

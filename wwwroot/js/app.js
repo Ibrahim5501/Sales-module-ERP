@@ -3,11 +3,53 @@
 // Initialiser la langue de DevExtreme en français
 DevExpress.localization.locale("fr");
 
+// Interception Fetch pour JWT
+const originalFetch = window.fetch;
+window.fetch = async function (url, options) {
+    options = options || {};
+    const token = localStorage.getItem("aura_erp_token");
+    
+    // Ajouter l'en-tête d'autorisation pour les requêtes API locales
+    if (token && (url.startsWith("/api/") || url.startsWith("api/"))) {
+        options.headers = options.headers || {};
+        if (options.headers.append) {
+            options.headers.set("Authorization", "Bearer " + token);
+        } else {
+            options.headers["Authorization"] = "Bearer " + token;
+        }
+    }
+    
+    const response = await originalFetch(url, options);
+    
+    // Si non autorisé (token expiré/invalide), forcer la déconnexion
+    if (response.status === 401 && !url.includes("api/auth/login")) {
+        triggerLogout();
+    }
+    
+    return response;
+};
+
+function triggerLogout() {
+    localStorage.removeItem("aura_erp_token");
+    localStorage.removeItem("aura_erp_user_name");
+    localStorage.removeItem("aura_erp_user_email");
+    $("#login-screen").css("display", "flex");
+    $(".app-container").css("display", "none");
+    $("#login-password").val("");
+    $("#login-error").hide();
+}
+
+function updateUserInfoUI() {
+    const userName = localStorage.getItem("aura_erp_user_name") || "Utilisateur";
+    $(".user-name").text(userName);
+}
+
 // Variables d'état global
 let clientsData = [];
 let produitsData = [];
 let commandesData = [];
 let facturesData = [];
+let devisData = [];
 let activeTab = 'tableau-bord';
 let darkTheme = false;
 let toastInstance = null;
@@ -20,8 +62,55 @@ $(document).ready(() => {
     // Renseigner la date du jour
     formatCurrentDate();
 
-    // Charger les listes de base et le dashboard
-    chargerToutesLesDonnees();
+    // Configurer la déconnexion
+    $("#logout-btn").on("click", () => {
+        triggerLogout();
+        showToast("Vous avez été déconnecté.");
+    });
+
+    // Configurer le formulaire de connexion
+    $("#login-form").on("submit", async (e) => {
+        e.preventDefault();
+        const email = $("#login-email").val();
+        const password = $("#login-password").val();
+        $("#login-error").hide();
+        $("#btn-login-submit").prop("disabled", true).find("span").text("Connexion...");
+
+        try {
+            const res = await originalFetch("/api/auth/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, password })
+            });
+
+            if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.message || "Identifiants invalides");
+            }
+
+            const data = await res.json();
+            localStorage.setItem("aura_erp_token", data.token);
+            localStorage.setItem("aura_erp_user_name", data.nom);
+            localStorage.setItem("aura_erp_user_email", data.email);
+
+            updateUserInfoUI();
+            
+            // Masquer l'écran de connexion et afficher l'ERP
+            $("#login-screen").hide();
+            $(".app-container").css("display", "flex");
+            
+            showToast("Connexion réussie. Bienvenue, " + data.nom + " !");
+            
+            // Charger les listes de base et le dashboard
+            chargerToutesLesDonnees();
+        } catch (err) {
+            console.error(err);
+            $("#login-error").find("span").text(err.message);
+            $("#login-error").fadeIn();
+        } finally {
+            $("#btn-login-submit").prop("disabled", false).find("span").text("Se connecter");
+        }
+    });
 
     // Configurer la navigation SPA
     setupNavigation();
@@ -35,6 +124,7 @@ $(document).ready(() => {
     initPopupReglement();
     initPopupCommande();
     initPopupDetailCommande();
+    initPopupDevis();
 
     // Lier les boutons d'ouverture aux Popups DevExtreme
     $("#btn-creer-client-dx").on("click", () => {
@@ -46,6 +136,20 @@ $(document).ready(() => {
     $("#btn-creer-commande-dx").on("click", () => {
         ouvrirNouvelleCommandePopup();
     });
+    $("#btn-creer-devis-dx").on("click", () => {
+        ouvrirNouveauDevisPopup();
+    });
+
+    // Gérer l'état de démarrage de l'authentification
+    if (localStorage.getItem("aura_erp_token")) {
+        updateUserInfoUI();
+        $("#login-screen").hide();
+        $(".app-container").css("display", "flex");
+        chargerToutesLesDonnees();
+    } else {
+        $("#login-screen").css("display", "flex");
+        $(".app-container").css("display", "none");
+    }
 });
 
 // INITIALISER DX TOAST
@@ -74,14 +178,12 @@ function showToast(message, isError = false) {
 
 // FORMATER LA DATE DU JOUR
 function formatCurrentDate() {
-    const options = { day: 'numeric', month: 'long', year: 'numeric' };
-    const dateStr = new Date().toLocaleDateString('fr-FR', options);
-    $("#date-text").text(dateStr);
+    // No date element in topnav layout â€” function kept for compatibility
 }
 
 // NAVIGATION SPA
 function setupNavigation() {
-    $(".nav-item").on("click", function(e) {
+    $(".topnav-item").on("click", function(e) {
         e.preventDefault();
         const targetId = $(this).attr("href").substring(1);
         switchTab(targetId);
@@ -92,8 +194,8 @@ function switchTab(tabId) {
     activeTab = tabId;
     
     // Mettre à jour la classe active sur les liens nav
-    $(".nav-item").removeClass("active");
-    $(`.nav-item[href="#${tabId}"]`).addClass("active");
+    $(".topnav-item").removeClass("active");
+    $(`.topnav-item[href="#${tabId}"]`).addClass("active");
 
     // Afficher le bon pane
     $(".tab-pane").removeClass("active");
@@ -102,6 +204,8 @@ function switchTab(tabId) {
     // Recharger les données de la vue correspondante
     if (tabId === 'tableau-bord') {
         chargerDashboard();
+    } else if (tabId === 'devis') {
+        chargerDevis();
     } else if (tabId === 'commandes') {
         chargerCommandes();
     } else if (tabId === 'factures') {
@@ -240,17 +344,17 @@ function renderDashboardCharts(data) {
             { valueField: "encaissements", name: "Règlements encaissés (€)", color: "#10b981" }
         ],
         argumentAxis: {
-            label: { font: { family: "Outfit", color: labelColor } },
+            label: { font: { family: "Inter", color: labelColor } },
             grid: { visible: true, color: isDark ? "#1e293b" : "#f1f5f9" }
         },
         valueAxis: {
-            label: { font: { family: "Outfit", color: labelColor } },
+            label: { font: { family: "Inter", color: labelColor } },
             grid: { visible: true, color: isDark ? "#1e293b" : "#f1f5f9" }
         },
         legend: {
             verticalAlignment: "top",
             horizontalAlignment: "center",
-            font: { family: "Outfit", color: labelColor }
+            font: { family: "Inter", color: labelColor }
         },
         tooltip: {
             enabled: true,
@@ -270,14 +374,14 @@ function renderDashboardCharts(data) {
                 visible: true,
                 connector: { visible: true },
                 format: "percent",
-                font: { family: "Outfit" }
+                font: { family: "Inter" }
             }
         }],
         palette: "Soft Pastel",
         legend: {
             verticalAlignment: "bottom",
             horizontalAlignment: "center",
-            font: { family: "Outfit", color: labelColor }
+            font: { family: "Inter", color: labelColor }
         },
         tooltip: {
             enabled: true,
@@ -304,13 +408,14 @@ async function chargerCommandes() {
             paging: { pageSize: 10 },
             pager: { showPageSizeSelector: true, allowedPageSizes: [5, 10, 20], showInfo: true },
             columns: [
-                { dataField: "numeroCommande", caption: "N° Commande", width: 140, cellTemplate: (container, options) => {
+                { dataField: "numeroCommande", caption: "N° Commande", width: 150, cellTemplate: (container, options) => {
                     $("<strong>").text(options.value).appendTo(container);
                 }},
-                { dataField: "nomClient", caption: "Client Facturé" },
-                { dataField: "dateCommande", caption: "Date", dataType: "date", format: "dd/MM/yyyy", width: 120 },
+                { dataField: "nomPartenaire", caption: "Client" },
+                { dataField: "numeroDevis", caption: "N° Devis", width: 130 },
+                { dataField: "dateCommande", caption: "Date", dataType: "date", format: "dd/MM/yyyy", width: 110 },
                 { dataField: "statut", caption: "Statut", width: 120, alignment: "center", cellTemplate: renderStatusBadge },
-                { dataField: "montantTotal", caption: "Montant TTC", format: { type: "currency", currency: "EUR" }, alignment: "right", width: 140 },
+                { dataField: "montantTTC", caption: "Montant TTC", format: { type: "currency", currency: "EUR" }, alignment: "right", width: 140 },
                 {
                     caption: "Actions",
                     alignment: "center",
@@ -472,7 +577,7 @@ async function ouvrirDetailCommande(id) {
         c.lignes.forEach(l => {
             const remiseStr = l.tauxRemise > 0 ? `(-${l.tauxRemise}%)` : '';
             linesHtml += `
-                <div class="detail-item-row" style="display:flex; justify-content:space-between; padding:8px 12px; background:var(--bg-primary); border-radius:4px; margin-bottom:8px; font-size:13px;">
+                <div class="detail-item-row" style="display:flex; justify-content:space-between; padding:8px 12px; background:var(--bg-app); border-radius:4px; margin-bottom:8px; font-size:13px;">
                     <div style="display:flex; flex-direction:column;">
                         <strong>${l.nomProduit}</strong>
                         <span style="font-size:11px; color:var(--text-muted);">${l.quantite} x ${formatCurrency(l.prixUnitaire)} ${remiseStr}</span>
@@ -485,7 +590,7 @@ async function ouvrirDetailCommande(id) {
         $content.append(`
             <div style="margin-bottom: 20px;">
                 <h4 style="font-size:11px; text-transform:uppercase; color:var(--text-light); margin-bottom:6px; font-weight:700;">Informations Générales</h4>
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; padding:12px; background:var(--bg-primary); border:1px solid var(--border-color); border-radius:8px; font-size:13px;">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; padding:12px; background:var(--bg-app); border:1px solid var(--border); border-radius:8px; font-size:13px;">
                     <div><span style="color:var(--text-muted);">N° Commande:</span> <strong>${c.numeroCommande}</strong></div>
                     <div><span style="color:var(--text-muted);">Statut:</span> <span class="badge ${badgeClass}">${badgeLabel}</span></div>
                     <div><span style="color:var(--text-muted);">Date:</span> <strong>${dateFormatted}</strong></div>
@@ -495,7 +600,7 @@ async function ouvrirDetailCommande(id) {
 
             <div style="margin-bottom: 20px;">
                 <h4 style="font-size:11px; text-transform:uppercase; color:var(--text-light); margin-bottom:6px; font-weight:700;">Client</h4>
-                <div style="padding:12px; background:var(--bg-primary); border:1px solid var(--border-color); border-radius:8px; font-size:13px;">
+                <div style="padding:12px; background:var(--bg-app); border:1px solid var(--border); border-radius:8px; font-size:13px;">
                     <strong>${c.nomClient}</strong>
                 </div>
             </div>
@@ -524,6 +629,18 @@ async function chargerFactures() {
         const res = await fetch('/api/factures');
         facturesData = await res.json();
         
+        // Calcul des KPI Factures
+        const totalHT = facturesData.reduce((sum, f) => sum + (f.montantHT || f.montantTotal / 1.2), 0);
+        const totalTTC = facturesData.reduce((sum, f) => sum + f.montantTotal, 0);
+        const totalPaye = facturesData.reduce((sum, f) => sum + (f.montantPaye || 0), 0);
+        const totalReste = totalTTC - totalPaye;
+        
+        const fmt = (v) => new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(v);
+        $("#kpi-fact-ca-ht").text(fmt(totalHT));
+        $("#kpi-fact-ca-ttc").text(fmt(totalTTC));
+        $("#kpi-fact-perdu").text(fmt(totalPaye));
+        $("#kpi-fact-reste").text(fmt(totalReste));
+        
         $("#grid-factures").dxDataGrid({
             dataSource: facturesData,
             showBorders: false,
@@ -532,19 +649,19 @@ async function chargerFactures() {
             headerFilter: { visible: true },
             paging: { pageSize: 10 },
             columns: [
-                { dataField: "numeroFacture", caption: "N° Facture", cellTemplate: (container, options) => {
+                { dataField: "numeroFacture", caption: "N° Facture", width: 140, cellTemplate: (container, options) => {
                     $("<strong>").text(options.value).appendTo(container);
                 }},
-                { dataField: "numeroCommande", caption: "Commande" },
-                { dataField: "nomClient", caption: "Client" },
-                { dataField: "dateFacture", caption: "Date Émission", dataType: "date", format: "dd/MM/yyyy" },
-                { dataField: "dateEcheance", caption: "Date Échéance", dataType: "date", format: "dd/MM/yyyy" },
-                { dataField: "statut", caption: "Statut", alignment: "center", cellTemplate: renderStatusBadge },
-                { dataField: "montantTotal", caption: "Total TTC", format: { type: "currency", currency: "EUR" }, alignment: "right" },
-                { dataField: "montantRestant", caption: "Reste à Payer", alignment: "right", cellTemplate: (container, options) => {
-                    const r = options.data.montantTotal - options.data.montantPaye;
+                { dataField: "nomPartenaire", caption: "Client" },
+                { dataField: "numeroCommande", caption: "N° Commande", width: 140 },
+                { dataField: "dateFacture", caption: "Date Émission", dataType: "date", format: "dd/MM/yyyy", width: 120 },
+                { dataField: "dateEcheance", caption: "Date Échéance", dataType: "date", format: "dd/MM/yyyy", width: 120 },
+                { dataField: "statut", caption: "Statut", alignment: "center", width: 120, cellTemplate: renderStatusBadge },
+                { dataField: "montantTotal", caption: "Total TTC", format: { type: "currency", currency: "EUR" }, alignment: "right", width: 130 },
+                { dataField: "montantRestant", caption: "Reste à Payer", alignment: "right", width: 130, cellTemplate: (container, options) => {
+                    const r = options.value || 0;
                     const $span = $("<span>").text(formatCurrency(r));
-                    if (r > 0) $span.addClass("text-danger font-semibold");
+                    if (r > 0) $span.css({ color: "var(--danger)", fontWeight: "700" });
                     $span.appendTo(container);
                 }},
                 {
@@ -553,14 +670,15 @@ async function chargerFactures() {
                     width: 140,
                     cellTemplate: (container, options) => {
                         const f = options.data;
-                        const reste = f.montantTotal - f.montantPaye;
+                        const reste = f.montantRestant || (f.montantTotal - f.montantPaye);
                         if (f.statut !== 'Payee' && f.statut !== 'Annulee') {
                             $("<button>").addClass("btn btn-secondary btn-small")
                                 .html("<i class='fa-solid fa-cash-register'></i> Régler")
-                                .on("click", () => ouvrirModalPaiement(f.id, f.numeroFacture, reste))
+                                .on("click", () => ouvrirModalPaiement(f.idFacture, f.numeroFacture, reste))
                                 .appendTo(container);
                         } else {
-                            $("<span style='color:var(--text-light); font-size:12px;'><i class='fa-solid fa-circle-check text-success'></i> Clôturée</span>")
+                            $("<span>").css({ color: "var(--text-muted)", fontSize: "12px" })
+                                .html("<i class='fa-solid fa-circle-check' style='color:var(--success)'></i> Clôturée")
                                 .appendTo(container);
                         }
                     }
@@ -584,7 +702,7 @@ function initPopupReglement() {
         showCloseButton: true,
         contentTemplate: (container) => {
             container.append(`
-                <div style="padding: 12px; background:var(--bg-primary); border:1px solid var(--border-color); border-radius:8px; margin-bottom:16px; font-size:13px;">
+                <div style="padding: 12px; background:var(--bg-app); border:1px solid var(--border); border-radius:8px; margin-bottom:16px; font-size:13px;">
                     <div><strong>Facture :</strong> <span id="dx-regle-ref">FAC-XXXX</span></div>
                     <div style="margin-top:4px;"><strong>Reste à régler :</strong> <span id="dx-regle-reste" class="text-danger font-semibold">0,00 €</span></div>
                 </div>
@@ -808,7 +926,7 @@ async function chargerProduits() {
         const res = await fetch('/api/produits');
         produitsData = await res.json();
 
-        $("#grid-articles").dxDataGrid({
+                $("#grid-articles").dxDataGrid({
             dataSource: produitsData,
             showBorders: false,
             searchPanel: { visible: true, width: 260, placeholder: "Rechercher un article..." },
@@ -816,15 +934,19 @@ async function chargerProduits() {
             headerFilter: { visible: true },
             paging: { pageSize: 10 },
             columns: [
-                { dataField: "codeArticle", caption: "SKU / Code", width: 140, cellTemplate: (container, options) => {
+                { dataField: "code", caption: "Code / SKU", width: 130, cellTemplate: (container, options) => {
                     $("<strong style='font-family:monospace;'>").text(options.value).appendTo(container);
                 }},
-                { dataField: "nom", caption: "Désignation" },
-                { dataField: "categorie", caption: "Catégorie", width: 150 },
-                { dataField: "description", caption: "Description commerciale" },
-                { dataField: "prixUnitaire", caption: "Prix Unit. HT", format: { type: "currency", currency: "EUR" }, alignment: "right", width: 120 },
-                { dataField: "quantiteStock", caption: "Jauge de Stock", alignment: "center", width: 180, cellTemplate: renderStockProgressBar },
-                { dataField: "seuilAlerte", caption: "Alerte Seuil", width: 100, alignment: "center" }
+                { dataField: "designation", caption: "D\u00e9signation" },
+                { dataField: "nomCategorie", caption: "Cat\u00e9gorie", width: 150 },
+                { dataField: "unite", caption: "Unit\u00e9", width: 80, alignment: "center" },
+                { dataField: "prixUniversitaire", caption: "Prix Unit. HT", format: { type: "currency", currency: "EUR" }, alignment: "right", width: 130 },
+                { dataField: "tauxTVA", caption: "TVA (%)", alignment: "center", width: 80 },
+                { dataField: "quantiteStock", caption: "Stock", alignment: "center", width: 180, cellTemplate: renderStockProgressBar },
+                { dataField: "actif", caption: "Actif", dataType: "boolean", width: 80, alignment: "center", cellTemplate: (container, options) => {
+                    $("<span>").addClass("badge " + (options.value ? "badge-green" : "badge-gray"))
+                        .text(options.value ? "OUI" : "NON").appendTo(container);
+                }}
             ]
         });
     } catch (err) {
@@ -853,7 +975,7 @@ function renderStockProgressBar(container, options) {
             <span>${stock} ${p.unite}</span>
             ${enRupture ? '<span class="text-danger" style="font-size:10px;">RUPTURE</span>' : (sousAlerte ? '<span class="text-warning" style="font-size:10px;">BAS</span>' : '')}
         </div>
-        <div class="stock-bar-bg" style="height:6px; background-color:var(--border-color); border-radius:10px; overflow:hidden; width:100%;">
+        <div class="stock-bar-bg" style="height:6px; background-color:var(--border); border-radius:10px; overflow:hidden; width:100%;">
             <div class="stock-bar-fill ${stockFillClass}" style="height:100%; width:${pct}%; border-radius:10px;"></div>
         </div>
     `);
@@ -961,11 +1083,11 @@ function initPopupCommande() {
         contentTemplate: (container) => {
             container.append(`
                 <div id="dx-form-commande-header"></div>
-                <div style="margin-top:20px; border-top:1px dashed var(--border-color); padding-top:15px;">
+                <div style="margin-top:20px; border-top:1px dashed var(--border); padding-top:15px;">
                     <h4 style="font-weight:700; font-size:13.5px; margin-bottom:8px;"><i class="fa-solid fa-list"></i> Lignes de Commande</h4>
                     <div id="dx-grid-commande-lines"></div>
                 </div>
-                <div class="order-summary-box" style="margin-top:15px; margin-left:auto; width:260px; padding:10px; background:var(--bg-primary); border:1px solid var(--border-color); border-radius:6px; font-size:12.5px;">
+                <div class="order-summary-box" style="margin-top:15px; margin-left:auto; width:260px; padding:10px; background:var(--bg-app); border:1px solid var(--border); border-radius:6px; font-size:12.5px;">
                     <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
                         <span>Total HT :</span>
                         <span id="cmd-summary-subtotal">0,00 €</span>
@@ -974,7 +1096,7 @@ function initPopupCommande() {
                         <span>TVA (20%) :</span>
                         <span id="cmd-summary-tva">0,00 €</span>
                     </div>
-                    <div style="display:flex; justify-content:space-between; font-weight:700; border-top:1px solid var(--border-color); padding-top:4px; color:var(--primary); font-size:13.5px;">
+                    <div style="display:flex; justify-content:space-between; font-weight:700; border-top:1px solid var(--border); padding-top:4px; color:var(--navy); font-size:13.5px;">
                         <span>Montant TTC :</span>
                         <span id="cmd-summary-total">0,00 €</span>
                     </div>
@@ -1213,6 +1335,311 @@ async function soumettreCommande() {
         
         chargerToutesLesDonnees();
         if (activeTab === 'commandes') chargerCommandes();
+    } catch (err) {
+        showToast(err.message, true);
+    }
+}
+
+// ============================================================
+// --- VUE DEVIS (dxDataGrid) ---
+// ============================================================
+async function chargerDevis() {
+    try {
+        const res = await fetch('/api/devis');
+        devisData = await res.json();
+
+        // KPI Devis
+        const total = devisData.length;
+        const envoyes = devisData.filter(d => d.statut === 'Envoye').length;
+        const acceptes = devisData.filter(d => d.statut === 'Accepte').length;
+        const montantTotal = devisData.reduce((s, d) => s + (d.montantTTC || 0), 0);
+        const fmt = v => new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(v);
+
+        $("#kpi-devis-total").text(total);
+        $("#kpi-devis-envoyes").text(envoyes);
+        $("#kpi-devis-acceptes").text(acceptes);
+        $("#kpi-devis-montant").text(fmt(montantTotal));
+
+        $("#grid-devis").dxDataGrid({
+            dataSource: devisData,
+            allowColumnReordering: true,
+            showBorders: false,
+            searchPanel: { visible: true, width: 260, placeholder: "Rechercher un devis..." },
+            filterRow: { visible: true },
+            headerFilter: { visible: true },
+            paging: { pageSize: 10 },
+            pager: { showPageSizeSelector: true, allowedPageSizes: [5, 10, 20], showInfo: true },
+            columns: [
+                { dataField: "numeroDevis", caption: "N° Devis", width: 150, cellTemplate: (container, options) => {
+                    $("<strong>").text(options.value).appendTo(container); 
+                }},
+                { dataField: "nomPartenaire", caption: "Client" },
+                { dataField: "dateDevis", caption: "Date", dataType: "date", format: "dd/MM/yyyy", width: 110 },
+                { dataField: "dateValidite", caption: "Validité", dataType: "date", format: "dd/MM/yyyy", width: 110 },
+                { dataField: "statut", caption: "Statut", width: 120, alignment: "center", cellTemplate: renderDevisBadge },
+                { dataField: "montantHT", caption: "Montant HT", format: { type: "currency", currency: "EUR" }, alignment: "right", width: 130 },
+                { dataField: "montantTTC", caption: "Total TTC", format: { type: "currency", currency: "EUR" }, alignment: "right", width: 130 },
+                {
+                    caption: "Actions",
+                    alignment: "center",
+                    width: 260,
+                    cellTemplate: renderDevisActions
+                }
+            ]
+        });
+    } catch (err) {
+        console.error(err);
+        showToast("Erreur de chargement des devis.", true);
+    }
+}
+
+function renderDevisBadge(container, options) {
+    const val = options.value;
+    const map = {
+        'Brouillon': ['badge-gray', 'Brouillon'],
+        'Envoye':    ['badge-blue', 'Envoyé'],
+        'Accepte':   ['badge-green', 'Accepté'],
+        'Refuse':    ['badge-red', 'Refusé'],
+        'Expire':    ['badge-orange', 'Expiré']
+    };
+    const [cls, label] = map[val] || ['badge-gray', val];
+    $("<span>").addClass(`badge ${cls}`).text(label).appendTo(container);
+}
+
+function renderDevisActions(container, options) {
+    const d = options.data;
+    const $wrap = $("<div style='display:flex; gap:4px; justify-content:center; flex-wrap:wrap;'>");
+
+    if (d.statut === 'Brouillon') {
+        $("<a>").addClass("action-btn-dx btn-approve")
+            .html("<i class='fa-solid fa-paper-plane'></i> Envoyer")
+            .on("click", () => envoyerDevis(d.id_Devis))
+            .appendTo($wrap);
+        $("<a>").addClass("action-btn-dx btn-cancel")
+            .html("<i class='fa-solid fa-xmark'></i> Refuser")
+            .on("click", () => refuserDevis(d.id_Devis))
+            .appendTo($wrap);
+    } else if (d.statut === 'Envoye') {
+        $("<a>").addClass("action-btn-dx btn-invoice")
+            .html("<i class='fa-solid fa-check-double'></i> Accepter")
+            .on("click", () => accepterDevis(d.id_Devis))
+            .appendTo($wrap);
+        $("<a>").addClass("action-btn-dx btn-cancel")
+            .html("<i class='fa-solid fa-xmark'></i> Refuser")
+            .on("click", () => refuserDevis(d.id_Devis))
+            .appendTo($wrap);
+    }
+
+    $wrap.appendTo(container);
+}
+
+async function envoyerDevis(id) {
+    if (!confirm("Envoyer ce devis au client ? Son statut passera à 'Envoyé'.")) return;
+    try {
+        const res = await fetch(`/api/devis/${id}/valider`, { method: 'POST' });
+        if (!res.ok) { const e = await res.json(); throw new Error(e.message); }
+        showToast("Devis envoyé avec succès !");
+        chargerDevis();
+    } catch (err) { showToast(err.message, true); }
+}
+
+async function refuserDevis(id) {
+    if (!confirm("Refuser / annuler ce devis ?")) return;
+    try {
+        const res = await fetch(`/api/devis/${id}/annuler`, { method: 'POST' });
+        if (!res.ok) { const e = await res.json(); throw new Error(e.message); }
+        showToast("Devis refusé.");
+        chargerDevis();
+    } catch (err) { showToast(err.message, true); }
+}
+
+async function accepterDevis(id) {
+    if (!confirm("Accepter ce devis et créer automatiquement un bon de commande ?")) return;
+    try {
+        const res = await fetch(`/api/devis/${id}/accepter`, { method: 'POST' });
+        if (!res.ok) { const e = await res.json(); throw new Error(e.message); }
+        const cmd = await res.json();
+        showToast(`Devis accepté ! Commande ${cmd.numeroCommande} créée.`);
+        chargerDevis();
+        chargerToutesLesDonnees();
+    } catch (err) { showToast(err.message, true); }
+}
+
+// --- POPUP CREATION DEVIS ---
+function initPopupDevis() {
+    $("#popup-devis").dxPopup({
+        title: "Créer un Devis Commercial",
+        width: 820,
+        height: "auto",
+        maxHeight: "90vh",
+        visible: false,
+        dragEnabled: true,
+        showCloseButton: true,
+        contentTemplate: (container) => {
+            container.css("overflow-y", "auto");
+            container.append(`
+                <div id="dx-form-devis-header"></div>
+                <div style="margin-top:20px; border-top:1px dashed var(--border); padding-top:15px;">
+                    <h4 style="font-weight:700; font-size:13.5px; margin-bottom:8px;">
+                        <i class="fa-solid fa-list"></i> Lignes du Devis
+                    </h4>
+                    <div id="dx-grid-devis-lines"></div>
+                </div>
+                <div style="margin-top:15px; margin-left:auto; width:260px; padding:10px; background:var(--bg-app); border:1px solid var(--border); border-radius:6px; font-size:12.5px;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
+                        <span>Total HT :</span><span id="devis-summary-ht">0,00 €</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
+                        <span>TVA (20%) :</span><span id="devis-summary-tva">0,00 €</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; font-weight:700; border-top:1px solid var(--border); padding-top:4px; color:var(--navy); font-size:13.5px;">
+                        <span>Total TTC :</span><span id="devis-summary-ttc">0,00 €</span>
+                    </div>
+                </div>
+            `);
+        },
+        toolbarItems: [
+            {
+                shortcut: "done", location: "after", toolbar: "bottom", widget: "dxButton",
+                options: { text: "Créer Devis (Brouillon)", type: "default", onClick: () => soumettreDevis() }
+            },
+            {
+                shortcut: "cancel", location: "after", toolbar: "bottom", widget: "dxButton",
+                options: { text: "Annuler", onClick: () => $("#popup-devis").dxPopup("instance").hide() }
+            }
+        ]
+    });
+}
+
+let internalDevisLines = [];
+function ouvrirNouveauDevisPopup() {
+    internalDevisLines = [];
+    $("#devis-summary-ht").text("0,00 €");
+    $("#devis-summary-tva").text("0,00 €");
+    $("#devis-summary-ttc").text("0,00 €");
+
+    const popup = $("#popup-devis").dxPopup("instance");
+    popup.show();
+
+    // Formulaire entête
+    $("#dx-form-devis-header").dxForm({
+        formData: { clientId: null },
+        colCount: 1,
+        items: [{
+            dataField: "clientId",
+            label: { text: "Client" },
+            editorType: "dxSelectBox",
+            editorOptions: {
+                dataSource: clientsData,
+                valueExpr: "id_Partenaire",
+                displayExpr: (item) => item ? `${item.nom} (${item.entreprise})` : "",
+                searchEnabled: true,
+                placeholder: "-- Sélectionner le client --"
+            },
+            validationRules: [{ type: "required", message: "Le client est obligatoire." }]
+        }]
+    });
+
+    // Grille lignes
+    $("#dx-grid-devis-lines").dxDataGrid({
+        dataSource: internalDevisLines,
+        editing: { mode: "cell", allowAdding: true, allowUpdating: true, allowDeleting: true, newRowPosition: "last" },
+        showBorders: true,
+        height: 200,
+        scrolling: { mode: "virtual" },
+        columns: [
+            {
+                dataField: "produitId", caption: "Article / Produit",
+                lookup: {
+                    dataSource: produitsData,
+                    valueExpr: "id_Produit",
+                    displayExpr: (item) => item ? `${item.designation} (${item.code})` : ""
+                },
+                validationRules: [{ type: "required" }],
+                setCellValue: (rowData, value) => {
+                    rowData.produitId = value;
+                    const prod = produitsData.find(p => p.id_Produit === value);
+                    if (prod) {
+                        rowData.prixUnitaire = prod.prixUniversitaire;
+                        rowData.tauxTVA = prod.tauxTVA || 20;
+                        rowData.quantite = 1;
+                        rowData.remise = 0;
+                    }
+                }
+            },
+            { dataField: "prixUnitaire", caption: "Prix Unit. HT", dataType: "number", format: { type: "currency", currency: "EUR" }, allowEditing: false, width: 120, alignment: "right" },
+            { dataField: "quantite", caption: "Qté", dataType: "number", width: 70, alignment: "center", editorOptions: { min: 1 }, validationRules: [{ type: "required" }] },
+            { dataField: "remise", caption: "Remise (%)", dataType: "number", width: 90, alignment: "center", editorOptions: { min: 0, max: 100 } },
+            { dataField: "tauxTVA", caption: "TVA (%)", dataType: "number", width: 80, alignment: "center" },
+            {
+                caption: "Total HT", dataType: "number", format: { type: "currency", currency: "EUR" },
+                allowEditing: false, alignment: "right", width: 120,
+                calculateCellValue: (row) => {
+                    if (!row.prixUnitaire) return 0;
+                    return (row.prixUnitaire - (row.prixUnitaire * ((row.remise || 0) / 100))) * (row.quantite || 1);
+                }
+            }
+        ],
+        onRowInserted: () => recalculerTotauxDevisPopup(),
+        onRowUpdated: () => recalculerTotauxDevisPopup(),
+        onRowRemoved: () => recalculerTotauxDevisPopup()
+    });
+}
+
+function recalculerTotauxDevisPopup() {
+    const grid = $("#dx-grid-devis-lines").dxDataGrid("instance");
+    const items = grid.option("dataSource") || [];
+    let totalHT = 0;
+    items.forEach(l => {
+        if (l.prixUnitaire) {
+            totalHT += (l.prixUnitaire - (l.prixUnitaire * ((l.remise || 0) / 100))) * (l.quantite || 1);
+        }
+    });
+    const tva = totalHT * 0.2;
+    const ttc = totalHT + tva;
+    $("#devis-summary-ht").text(formatCurrency(totalHT));
+    $("#devis-summary-tva").text(formatCurrency(tva));
+    $("#devis-summary-ttc").text(formatCurrency(ttc));
+}
+
+async function soumettreDevis() {
+    const headerForm = $("#dx-form-devis-header").dxForm("instance");
+    if (!headerForm.validate().isValid) return;
+
+    const grid = $("#dx-grid-devis-lines").dxDataGrid("instance");
+    grid.closeEditCell();
+    const lines = grid.option("dataSource") || [];
+
+    if (lines.length === 0) {
+        showToast("Veuillez ajouter au moins une ligne.", true);
+        return;
+    }
+
+    const headerData = headerForm.option("formData");
+    const payload = {
+        id_Partenaire: headerData.clientId,
+        lignes: lines.map(l => ({
+            id_Produit: l.produitId,
+            description: "",
+            quantite: l.quantite || 1,
+            prixUniversitaire: l.prixUnitaire || 0,
+            tauxTVA: l.tauxTVA || 20,
+            remise: l.remise || 0,
+            montantHT: 0,
+            montantTTC: 0
+        }))
+    };
+
+    try {
+        const res = await fetch('/api/devis', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (!res.ok) { const e = await res.json(); throw new Error(e.message || "Erreur de création."); }
+        showToast("Devis créé en brouillon !");
+        $("#popup-devis").dxPopup("instance").hide();
+        chargerDevis();
     } catch (err) {
         showToast(err.message, true);
     }

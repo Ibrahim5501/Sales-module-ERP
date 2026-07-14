@@ -6,11 +6,14 @@ using example2.DTOs;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 
 namespace example2.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Route("api/clients")]
+    [Authorize]
     public class PartenairesController : ControllerBase
     {
         private readonly ApplicationDbContext _context;

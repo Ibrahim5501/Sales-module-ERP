@@ -33,8 +33,12 @@ namespace example2.DTOs
         public FactureStatut Statut { get; set; }
 
         public int Id_Commande { get; set; }
+        
+        public string? NumeroCommande { get; set; }
 
         public int Id_Partenaire { get; set; }
+        
+        public string? NomPartenaire { get; set; }
 
     }
 }

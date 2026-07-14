@@ -3,145 +3,189 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AURA ERP - Ventes & Facturation (DevExtreme)</title>
+    <title>AURA ERP - Ventes & Facturation</title>
     <!-- Polices Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- FontAwesome pour les icônes -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <!-- DevExtreme CSS (Soft Blue Theme + Common Stylesheet) -->
+    <!-- DevExtreme CSS -->
     <link rel="stylesheet" href="https://cdn3.devexpress.com/jslib/23.2.5/css/dx.common.css">
     <link rel="stylesheet" href="https://cdn3.devexpress.com/jslib/23.2.5/css/dx.softblue.css">
     
-    <!-- Styles CSS personnalisés pour fusionner la charte graphique -->
+    <!-- Styles CSS personnalisés -->
     <link rel="stylesheet" href="css/styles.css">
     
-    <!-- jQuery requis pour DevExtreme (JS) -->
+    <!-- jQuery requis pour DevExtreme -->
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
     
-    <!-- DevExtreme JS + Fichiers de Traduction Française (messages.fr.js) -->
+    <!-- DevExtreme JS + Traduction Française -->
     <script src="https://cdn3.devexpress.com/jslib/23.2.5/js/dx.all.js"></script>
     <script src="https://cdn3.devexpress.com/jslib/23.2.5/js/localization/dx.messages.fr.js"></script>
 </head>
 <body class="dx-viewport">
 
-    <div class="app-container">
-        <!-- BARRE LATÉRALE DE NAVIGATION -->
-        <aside class="sidebar">
-            <div class="logo-area">
-                <div class="logo-icon"><i class="fa-solid fa-cube"></i></div>
-                <div class="logo-text">AURA<span>ERP</span></div>
+    <!-- ÉCRAN DE CONNEXION -->
+    <div class="login-container" id="login-screen" style="display: none;">
+        <div class="login-card">
+            <div class="login-header">
+                <div class="login-logo-icon">
+                    <i class="fa-solid fa-cube"></i>
+                </div>
+                <h2>AURA<span>ERP</span></h2>
+                <p>Système de gestion commerciale sécurisé</p>
             </div>
             
-            <nav class="nav-menu">
-                <a href="#tableau-bord" class="nav-item active" id="nav-tableau-bord">
-                    <i class="fa-solid fa-chart-line"></i>
+            <form id="login-form">
+                <div class="input-group">
+                    <label for="login-email"><i class="fa-regular fa-envelope"></i> Adresse Email</label>
+                    <input type="email" id="login-email" required placeholder="nom@exemple.com">
+                </div>
+                <div class="input-group">
+                    <label for="login-password"><i class="fa-solid fa-lock"></i> Mot de passe</label>
+                    <input type="password" id="login-password" required placeholder="••••••••">
+                </div>
+                
+                <div class="error-msg" id="login-error" style="display: none;">
+                    <i class="fa-solid fa-circle-exclamation"></i> <span>Identifiants invalides</span>
+                </div>
+                
+                <button type="submit" class="btn btn-login" id="btn-login-submit">
+                    <span>Se connecter</span> <i class="fa-solid fa-arrow-right-to-bracket"></i>
+                </button>
+            </form>
+            
+            <div class="login-footer">
+                <p>&copy; 2026 AURA ERP. Tous droits réservés.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="app-container">
+        <!-- BARRE DE NAVIGATION HORIZONTALE SUPÉRIEURE -->
+        <header class="topnav">
+            <!-- Logo -->
+            <div class="topnav-logo">
+                <div class="logo-icon-nav"><i class="fa-solid fa-cube"></i></div>
+                <div class="logo-text-nav">AURA<span>ERP</span></div>
+            </div>
+
+            <!-- Navigation -->
+            <nav class="topnav-menu">
+                <a href="#tableau-bord" class="topnav-item active" id="nav-tableau-bord">
+                    <i class="fa-solid fa-house"></i>
                     <span>Tableau de bord</span>
                 </a>
-                <a href="#commandes" class="nav-item" id="nav-commandes">
+                <a href="#devis" class="topnav-item" id="nav-devis">
+                    <i class="fa-solid fa-file-pen"></i>
+                    <span>Devis</span>
+                </a>
+                <a href="#commandes" class="topnav-item" id="nav-commandes">
                     <i class="fa-solid fa-cart-shopping"></i>
                     <span>Commandes</span>
                 </a>
-                <a href="#factures" class="nav-item" id="nav-factures">
+                <a href="#factures" class="topnav-item" id="nav-factures">
                     <i class="fa-solid fa-file-invoice-dollar"></i>
                     <span>Factures</span>
                 </a>
-                <a href="#clients" class="nav-item" id="nav-clients">
+                <a href="#clients" class="topnav-item" id="nav-clients">
                     <i class="fa-solid fa-users"></i>
                     <span>Clients</span>
                 </a>
-                <a href="#articles" class="nav-item" id="nav-articles">
+                <a href="#articles" class="topnav-item" id="nav-articles">
                     <i class="fa-solid fa-boxes-stacked"></i>
                     <span>Articles</span>
                 </a>
             </nav>
 
-            <div class="sidebar-footer">
-                <div class="user-profile">
-                    <div class="user-avatar">
-                        <i class="fa-solid fa-user-tie"></i>
-                    </div>
-                    <div class="user-info">
-                        <span class="user-name">Directeur Ventes</span>
-                        <span class="user-role">Administrateur</span>
+            <!-- Actions droite -->
+            <div class="topnav-actions">
+                <div class="company-filter">
+                    <i class="fa-solid fa-building"></i>
+                    <span class="company-name">Filtrer par société...</span>
+                    <i class="fa-solid fa-chevron-down"></i>
+                </div>
+                <div class="topnav-notifications">
+                    <button class="topnav-icon-btn" id="theme-btn" title="Changer de thème">
+                        <i class="fa-solid fa-moon"></i>
+                    </button>
+                    <div class="topnav-icon-btn notif-bell">
+                        <i class="fa-solid fa-bell"></i>
+                        <span class="notif-count" id="stock-alert-badge">0</span>
                     </div>
                 </div>
+                <div class="user-chip">
+                    <div class="user-chip-avatar"><i class="fa-solid fa-user"></i></div>
+                    <span class="user-name">Administrateur</span>
+                </div>
+                <button class="btn-deconnexion" id="logout-btn">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                    <span>Déconnexion</span>
+                </button>
             </div>
-        </aside>
+        </header>
 
         <!-- CONTENU PRINCIPAL -->
         <main class="main-content">
-            <!-- BARRE DE TÊTE (HEADER) -->
-            <header class="top-header">
-                <div class="header-search-empty">
-                    <!-- Recherche globale intégrée directement dans les DataGrids DevExtreme -->
-                    <span class="erp-status-tag"><i class="fa-solid fa-shield-halved"></i> Connecté en mode Sécurisé</span>
-                </div>
-                <div class="header-actions">
-                    <button class="theme-toggle" id="theme-btn" title="Changer de thème">
-                        <i class="fa-solid fa-moon"></i>
-                    </button>
-                    <div class="notifications-bell">
-                        <i class="fa-solid fa-bell"></i>
-                        <span class="bell-badge" id="stock-alert-badge">0</span>
-                    </div>
-                    <div class="current-date">
-                        <i class="fa-regular fa-calendar-days"></i>
-                        <span id="date-text">7 Juillet 2026</span>
-                    </div>
-                </div>
-            </header>
-
-            <!-- ZONE DE CONTENU DYNAMIQUE -->
             <div class="content-body">
-                
+
                 <!-- 1. ONGLET : TABLEAU DE BORD -->
                 <section id="pane-tableau-bord" class="tab-pane active">
-                    <div class="welcome-banner">
-                        <div class="welcome-text">
-                            <h1>Bonjour, Administrateur 👋</h1>
-                            <p>Performances et indicateurs des ventes (Technologie DevExtreme).</p>
+                    <!-- En-tête de page -->
+                    <div class="page-header">
+                        <div class="page-header-left">
+                            <h1><i class="fa-solid fa-chart-line"></i> Tableau de bord</h1>
+                            <p>Performances et indicateurs des ventes en temps réel.</p>
                         </div>
-                        <div class="quick-stats-meta">
-                            <span class="pulse-dot"></span>
-                            Données en temps réel
+                        <div class="page-header-right">
+                            <div class="live-badge">
+                                <span class="pulse-dot"></span> Données en temps réel
+                            </div>
                         </div>
                     </div>
 
                     <!-- CARTES KPI -->
                     <div class="kpi-grid">
                         <div class="kpi-card">
-                            <div class="kpi-icon ca"><i class="fa-solid fa-euro-sign"></i></div>
-                            <div class="kpi-details">
-                                <span class="kpi-title">Chiffre d'Affaires</span>
-                                <h3 class="kpi-value" id="kpi-ca">0,00 €</h3>
-                                <span class="kpi-trend up"><i class="fa-solid fa-arrow-up"></i> +12.4% ce mois</span>
+                            <div class="kpi-icon-wrap ca">
+                                <i class="fa-solid fa-dollar-sign"></i>
+                            </div>
+                            <div class="kpi-body">
+                                <div class="kpi-label">CHIFFRE D'AFFAIRES</div>
+                                <div class="kpi-value" id="kpi-ca">0,00 €</div>
+                                <div class="kpi-sub">Total des factures (HT)</div>
                             </div>
                         </div>
                         <div class="kpi-card">
-                            <div class="kpi-icon commandes"><i class="fa-solid fa-cart-arrow-down"></i></div>
-                            <div class="kpi-details">
-                                <span class="kpi-title">Commandes Actives</span>
-                                <h3 class="kpi-value" id="kpi-commandes">0</h3>
-                                <span class="kpi-trend up"><i class="fa-solid fa-arrow-up"></i> +8.2% ce mois</span>
+                            <div class="kpi-icon-wrap commandes">
+                                <i class="fa-solid fa-cart-arrow-down"></i>
+                            </div>
+                            <div class="kpi-body">
+                                <div class="kpi-label">COMMANDES</div>
+                                <div class="kpi-value" id="kpi-commandes">0</div>
+                                <div class="kpi-sub">Commandes actives</div>
                             </div>
                         </div>
                         <div class="kpi-card">
-                            <div class="kpi-icon clients"><i class="fa-solid fa-user-check"></i></div>
-                            <div class="kpi-details">
-                                <span class="kpi-title">Clients Actifs</span>
-                                <h3 class="kpi-value" id="kpi-clients">0</h3>
-                                <span class="kpi-trend"><i class="fa-regular fa-circle"></i> Fidélité stable</span>
+                            <div class="kpi-icon-wrap clients">
+                                <i class="fa-solid fa-user-check"></i>
+                            </div>
+                            <div class="kpi-body">
+                                <div class="kpi-label">CLIENTS ACTIFS</div>
+                                <div class="kpi-value" id="kpi-clients">0</div>
+                                <div class="kpi-sub">Clients avec commandes</div>
                             </div>
                         </div>
                         <div class="kpi-card">
-                            <div class="kpi-icon impayes"><i class="fa-solid fa-circle-exclamation"></i></div>
-                            <div class="kpi-details">
-                                <span class="kpi-title">Encaissements Dûs</span>
-                                <h3 class="kpi-value" id="kpi-impayes">0,00 €</h3>
-                                <span class="kpi-trend down" id="kpi-taux-recouvrement">Recouvrement : 0%</span>
+                            <div class="kpi-icon-wrap impayes">
+                                <i class="fa-solid fa-clock-rotate-left"></i>
+                            </div>
+                            <div class="kpi-body">
+                                <div class="kpi-label">RESTE À PERCEVOIR</div>
+                                <div class="kpi-value" id="kpi-impayes">0,00 €</div>
+                                <div class="kpi-sub kpi-sub-danger" id="kpi-taux-recouvrement">Recouvrement : 0%</div>
                             </div>
                         </div>
                     </div>
@@ -152,114 +196,212 @@
                             <div class="card-header">
                                 <h3>Évolution des Ventes vs Encaissements (6 mois)</h3>
                             </div>
-                            <!-- DevExtreme dxChart -->
                             <div id="chart-evolution" class="devextreme-chart"></div>
                         </div>
                         <div class="chart-card small">
                             <div class="card-header">
                                 <h3>Répartition par Catégorie</h3>
                             </div>
-                            <!-- DevExtreme dxPieChart -->
                             <div id="chart-categories" class="devextreme-chart"></div>
                         </div>
                     </div>
 
                     <!-- GRID INFÉRIEURE : TOP CLIENTS & ALERTE STOCKS -->
                     <div class="dashboard-bottom-grid">
-                        <!-- Top Clients (dxDataGrid) -->
                         <div class="table-card">
                             <div class="card-header-flex">
                                 <h3>Top Clients (Volume d'achats)</h3>
                             </div>
                             <div id="grid-top-clients"></div>
                         </div>
-
-                        <!-- Ruptures & Alertes de Stock (Composant personnalisé) -->
                         <div class="alert-card">
                             <div class="card-header-flex">
                                 <h3>Alertes de Réapprovisionnement</h3>
                                 <span class="alert-count-badge" id="stock-alert-count">0 alerte</span>
                             </div>
-                            <div class="alert-list-container" id="dashboard-stock-alerts">
-                                <!-- Rempli par app.js -->
-                            </div>
+                            <div class="alert-list-container" id="dashboard-stock-alerts"></div>
                         </div>
                     </div>
                 </section>
 
-                <!-- 2. ONGLET : COMMANDES -->
-                <section id="pane-commandes" class="tab-pane">
-                    <div class="page-title-row">
-                        <div>
-                            <h1>Bons de Commande Client</h1>
-                            <p>Flux des ventes : Devis, validation de stock et facturation.</p>
+                <!-- 2. ONGLET : DEVIS -->
+                <section id="pane-devis" class="tab-pane">
+                    <div class="page-header">
+                        <div class="page-header-left">
+                            <h1>Devis Commerciaux</h1>
+                            <p>Création, suivi et conversion des devis en bons de commande.</p>
                         </div>
-                        <button class="btn btn-primary" id="btn-creer-commande-dx">
-                            <i class="fa-solid fa-plus"></i> Nouvelle Commande
-                        </button>
+                        <div class="page-header-right">
+                            <button class="btn btn-primary" id="btn-creer-devis-dx">
+                                <i class="fa-solid fa-plus"></i> Nouveau Devis
+                            </button>
+                        </div>
                     </div>
 
-                    <!-- DevExtreme dxDataGrid pour les commandes -->
-                    <div id="grid-commandes" class="devextreme-grid"></div>
+                    <!-- KPI Devis -->
+                    <div class="kpi-grid facture-kpis">
+                        <div class="kpi-card kpi-card-flat">
+                            <div class="kpi-icon-wrap ca"><i class="fa-solid fa-file-pen"></i></div>
+                            <div class="kpi-body">
+                                <div class="kpi-label">TOTAL DEVIS</div>
+                                <div class="kpi-value" id="kpi-devis-total">0</div>
+                                <div class="kpi-sub">Nombre de devis</div>
+                            </div>
+                        </div>
+                        <div class="kpi-card kpi-card-flat">
+                            <div class="kpi-icon-wrap commandes"><i class="fa-solid fa-paper-plane"></i></div>
+                            <div class="kpi-body">
+                                <div class="kpi-label">DEVIS ENVOYÉS</div>
+                                <div class="kpi-value" id="kpi-devis-envoyes">0</div>
+                                <div class="kpi-sub">En attente de réponse</div>
+                            </div>
+                        </div>
+                        <div class="kpi-card kpi-card-flat">
+                            <div class="kpi-icon-wrap clients"><i class="fa-solid fa-circle-check"></i></div>
+                            <div class="kpi-body">
+                                <div class="kpi-label">DEVIS ACCEPTÉS</div>
+                                <div class="kpi-value" id="kpi-devis-acceptes">0</div>
+                                <div class="kpi-sub">Convertis en commande</div>
+                            </div>
+                        </div>
+                        <div class="kpi-card kpi-card-flat">
+                            <div class="kpi-icon-wrap impayes"><i class="fa-solid fa-euro-sign"></i></div>
+                            <div class="kpi-body">
+                                <div class="kpi-label">MONTANT TOTAL</div>
+                                <div class="kpi-value" id="kpi-devis-montant">0</div>
+                                <div class="kpi-sub">Valeur du pipeline</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Grid Devis -->
+                    <div class="grid-wrapper">
+                        <div id="grid-devis" class="devextreme-grid"></div>
+                    </div>
                 </section>
 
                 <!-- 3. ONGLET : FACTURES -->
                 <section id="pane-factures" class="tab-pane">
-                    <div class="page-title-row">
-                        <div>
-                            <h1>Facturation & Encaissements</h1>
-                            <p>Suivi des factures de ventes, règlements et états des comptes.</p>
+                    <div class="page-header">
+                        <div class="page-header-left">
+                            <h1>Factures de Vente</h1>
+                            <p>Gestion et suivi des factures clients</p>
+                        </div>
+                        <div class="page-header-right">
+                            <button class="btn-outline-sm">Entreprise</button>
+                            <button class="btn-outline-sm">Pilotage financier</button>
+                        </div>
+                    </div>
+
+                    <!-- KPI Factures -->
+                    <div class="kpi-grid facture-kpis">
+                        <div class="kpi-card kpi-card-flat">
+                            <div class="kpi-icon-wrap ca"><i class="fa-solid fa-dollar-sign"></i></div>
+                            <div class="kpi-body">
+                                <div class="kpi-label">CHIFFRE D'AFFAIRES HT</div>
+                                <div class="kpi-value" id="kpi-fact-ca-ht">0,000</div>
+                                <div class="kpi-sub">Total des factures (HT)</div>
+                            </div>
+                        </div>
+                        <div class="kpi-card kpi-card-flat">
+                            <div class="kpi-icon-wrap commandes"><i class="fa-solid fa-dollar-sign"></i></div>
+                            <div class="kpi-body">
+                                <div class="kpi-label">CHIFFRE D'AFFAIRES TTC</div>
+                                <div class="kpi-value" id="kpi-fact-ca-ttc">0,000</div>
+                                <div class="kpi-sub">Total des factures (TTC)</div>
+                            </div>
+                        </div>
+                        <div class="kpi-card kpi-card-flat">
+                            <div class="kpi-icon-wrap clients"><i class="fa-solid fa-circle-check"></i></div>
+                            <div class="kpi-body">
+                                <div class="kpi-label">TOTAL PERDU</div>
+                                <div class="kpi-value" id="kpi-fact-perdu">0,000</div>
+                                <div class="kpi-sub">Montant déjà payé</div>
+                            </div>
+                        </div>
+                        <div class="kpi-card kpi-card-flat">
+                            <div class="kpi-icon-wrap impayes"><i class="fa-solid fa-clock-rotate-left"></i></div>
+                            <div class="kpi-body">
+                                <div class="kpi-label">RESTE À PERCEVOIR</div>
+                                <div class="kpi-value" id="kpi-fact-reste">0,000</div>
+                                <div class="kpi-sub">Solde en attente</div>
+                            </div>
                         </div>
                     </div>
 
                     <!-- DevExtreme dxDataGrid pour les factures -->
-                    <div id="grid-factures" class="devextreme-grid"></div>
+                    <div class="grid-wrapper">
+                        <div id="grid-factures" class="devextreme-grid"></div>
+                    </div>
+                </section>
+
+                <!-- 3. ONGLET : COMMANDES -->
+                <section id="pane-commandes" class="tab-pane">
+                    <div class="page-header">
+                        <div class="page-header-left">
+                            <h1>Bons de Commande Client</h1>
+                            <p>Flux des ventes : Devis, validation de stock et facturation.</p>
+                        </div>
+                        <div class="page-header-right">
+                            <button class="btn btn-primary" id="btn-creer-commande-dx">
+                                <i class="fa-solid fa-plus"></i> Nouvelle Commande
+                            </button>
+                        </div>
+                    </div>
+                    <div class="grid-wrapper">
+                        <div id="grid-commandes" class="devextreme-grid"></div>
+                    </div>
                 </section>
 
                 <!-- 4. ONGLET : CLIENTS -->
                 <section id="pane-clients" class="tab-pane">
-                    <div class="page-title-row">
-                        <div>
+                    <div class="page-header">
+                        <div class="page-header-left">
                             <h1>Fiches Clients</h1>
                             <p>Gestion de la relation client, limites de crédit et encours.</p>
                         </div>
-                        <button class="btn btn-primary" id="btn-creer-client-dx">
-                            <i class="fa-solid fa-user-plus"></i> Nouveau Client
-                        </button>
+                        <div class="page-header-right">
+                            <button class="btn btn-primary" id="btn-creer-client-dx">
+                                <i class="fa-solid fa-user-plus"></i> Nouveau Client
+                            </button>
+                        </div>
                     </div>
-
-                    <!-- DevExtreme dxDataGrid pour les clients -->
-                    <div id="grid-clients" class="devextreme-grid"></div>
+                    <div class="grid-wrapper">
+                        <div id="grid-clients" class="devextreme-grid"></div>
+                    </div>
                 </section>
 
                 <!-- 5. ONGLET : ARTICLES (PRODUITS) -->
                 <section id="pane-articles" class="tab-pane">
-                    <div class="page-title-row">
-                        <div>
+                    <div class="page-header">
+                        <div class="page-header-left">
                             <h1>Catalogue d'Articles & Stocks</h1>
                             <p>Suivi du catalogue, prix unitaires HT et alertes de stock.</p>
                         </div>
-                        <button class="btn btn-primary" id="btn-creer-article-dx">
-                            <i class="fa-solid fa-plus"></i> Ajouter un Article
-                        </button>
+                        <div class="page-header-right">
+                            <button class="btn btn-primary" id="btn-creer-article-dx">
+                                <i class="fa-solid fa-plus"></i> Ajouter un Article
+                            </button>
+                        </div>
                     </div>
-
-                    <!-- DevExtreme dxDataGrid pour les articles -->
-                    <div id="grid-articles" class="devextreme-grid"></div>
+                    <div class="grid-wrapper">
+                        <div id="grid-articles" class="devextreme-grid"></div>
+                    </div>
                 </section>
 
             </div>
         </main>
     </div>
 
-    <!-- ==================== CONTENEURS DES POPUPS DEVEXTREME ==================== -->
+    <!-- CONTENEURS DES POPUPS DEVEXTREME -->
     <div id="popup-client"></div>
     <div id="popup-article"></div>
     <div id="popup-commande"></div>
+    <div id="popup-devis"></div>
     <div id="popup-reglement"></div>
     <div id="popup-detail-commande"></div>
 
-    <!-- Notification Toast (Utilise dxToast) -->
+    <!-- Notification Toast -->
     <div id="dx-toast"></div>
 
     <!-- Fichiers JS de l'Application -->

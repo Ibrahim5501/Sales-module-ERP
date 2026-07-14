@@ -1,13 +1,15 @@
-﻿using example2.Data;
+using example2.Data;
 using example2.DTOs;
 using example2.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authorization;
 
 namespace example2.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class CategoriesController : ControllerBase
     {
         private readonly ApplicationDbContext _context;

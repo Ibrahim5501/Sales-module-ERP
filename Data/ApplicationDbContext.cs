@@ -19,6 +19,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<Commande> Commandes => Set<Commande>();
     public DbSet<CommandeLigne> CommandeLignes => Set<CommandeLigne>();
     public DbSet<Facture> Factures => Set<Facture>();
+    public DbSet<User> Users => Set<User>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

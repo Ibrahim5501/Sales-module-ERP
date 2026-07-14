@@ -26,6 +26,8 @@ namespace example2.DTOs
     public class ProduitDto : ProduitCreateDto
     {
         public int Id_Produit { get; set; }
+        
+        public string? NomCategorie { get; set; }
 
     }
 }

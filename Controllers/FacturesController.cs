@@ -7,11 +7,13 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 
 namespace example2.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class FacturesController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -24,14 +26,21 @@ namespace example2.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<FactureDto>>> Get()
         {
-            var factures = await _context.Factures.OrderByDescending(f => f.DateFacture).ToListAsync();
+            var factures = await _context.Factures
+                .Include(f => f.Partenaire)
+                .Include(f => f.Commande)
+                .OrderByDescending(f => f.DateFacture)
+                .ToListAsync();
             return Ok(factures.Select(MapToDto));
         }
 
         [HttpGet("{id}")]
         public async Task<ActionResult<FactureDto>> GetById(int id)
         {
-            var fact = await _context.Factures.FirstOrDefaultAsync(f => f.Id_Facture == id);
+            var fact = await _context.Factures
+                .Include(f => f.Partenaire)
+                .Include(f => f.Commande)
+                .FirstOrDefaultAsync(f => f.Id_Facture == id);
             if (fact == null) return NotFound(new { message = "Facture non trouvée." });
             return Ok(MapToDto(fact));
         }
@@ -39,7 +48,10 @@ namespace example2.Controllers
         [HttpPost("{id}/annuler")]
         public async Task<ActionResult<FactureDto>> Annuler(int id)
         {
-            var fact = await _context.Factures.FirstOrDefaultAsync(f => f.Id_Facture == id);
+            var fact = await _context.Factures
+                .Include(f => f.Partenaire)
+                .Include(f => f.Commande)
+                .FirstOrDefaultAsync(f => f.Id_Facture == id);
             if (fact == null || fact.Statut == FactureStatut.Annulee)
                 return BadRequest(new { message = "Annulation impossible. La facture n'existe pas ou est déjà annulée." });
             fact.Statut = FactureStatut.Annulee;
@@ -53,7 +65,10 @@ namespace example2.Controllers
             if (request == null || request.Montant <= 0)
                 return BadRequest(new { message = "Le montant du règlement doit être supérieur à 0." });
 
-            var fact = await _context.Factures.FirstOrDefaultAsync(f => f.Id_Facture == id);
+            var fact = await _context.Factures
+                .Include(f => f.Partenaire)
+                .Include(f => f.Commande)
+                .FirstOrDefaultAsync(f => f.Id_Facture == id);
             if (fact == null || fact.Statut == FactureStatut.Payee || fact.Statut == FactureStatut.Annulee)
                 return BadRequest(new { message = "Règlement impossible. La facture n'existe pas ou est déjà payée/annulée." });
 
@@ -91,7 +106,9 @@ namespace example2.Controllers
                 Id_Facture = f.Id_Facture,
                 NumeroFacture = f.NumeroFacture,
                 Id_Commande = f.Id_Commande,
+                NumeroCommande = f.Commande != null ? f.Commande.NumeroCommande : null,
                 Id_Partenaire = f.Id_Partenaire,
+                NomPartenaire = f.Partenaire != null ? $"{f.Partenaire.Nom} ({f.Partenaire.Entreprise})" : $"Partenaire #{f.Id_Partenaire}",
                 DateFacture = f.DateFacture,
                 DateEcheance = f.DateEcheance,
                 MontantTotal = f.MontantTotal,

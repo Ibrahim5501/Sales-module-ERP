@@ -7,11 +7,13 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 
 namespace example2.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class CommandesController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -24,14 +26,23 @@ namespace example2.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<CommandeDto>>> Get()
         {
-            var list = await _context.Commandes.Include(c => c.Lignes).OrderByDescending(c => c.DateCommande).ToListAsync();
+            var list = await _context.Commandes
+                .Include(c => c.Lignes)
+                .Include(c => c.Partenaire)
+                .Include(c => c.Devis)
+                .OrderByDescending(c => c.DateCommande)
+                .ToListAsync();
             return Ok(list.Select(MapToDto));
         }
 
         [HttpGet("{id}")]
         public async Task<ActionResult<CommandeDto>> GetById(int id)
         {
-            var cmd = await _context.Commandes.Include(c => c.Lignes).FirstOrDefaultAsync(c => c.Id_Commande == id);
+            var cmd = await _context.Commandes
+                .Include(c => c.Lignes)
+                .Include(c => c.Partenaire)
+                .Include(c => c.Devis)
+                .FirstOrDefaultAsync(c => c.Id_Commande == id);
             if (cmd == null) return NotFound(new { message = "Commande non trouvée." });
             return Ok(MapToDto(cmd));
         }
@@ -83,13 +94,20 @@ namespace example2.Controllers
             _context.Commandes.Add(commande);
             await _context.SaveChangesAsync();
 
+            commande.Partenaire = await _context.Partenaires.FirstOrDefaultAsync(p => p.Id_Partenaire == commande.Id_Partenaire);
+            commande.Devis = await _context.Devis.FirstOrDefaultAsync(d => d.Id_Devis == commande.Id_Devis);
+
             return CreatedAtAction(nameof(GetById), new { id = commande.Id_Commande }, MapToDto(commande));
         }
 
         [HttpPost("{id}/valider")]
         public async Task<ActionResult<CommandeDto>> Valider(long id)
         {
-            var cmd = await _context.Commandes.Include(c => c.Lignes).FirstOrDefaultAsync(c => c.Id_Commande == id);
+            var cmd = await _context.Commandes
+                .Include(c => c.Lignes)
+                .Include(c => c.Partenaire)
+                .Include(c => c.Devis)
+                .FirstOrDefaultAsync(c => c.Id_Commande == id);
             if (cmd == null || cmd.Statut != CommandeStatut.EnAttente)
                 return BadRequest(new { message = "Impossible de valider la commande. Soit elle n'existe pas, soit elle n'est plus en statut EnAttente." });
 
@@ -113,7 +131,11 @@ namespace example2.Controllers
         [HttpPost("{id}/annuler")]
         public async Task<ActionResult<CommandeDto>> Annuler(long id)
         {
-            var cmd = await _context.Commandes.Include(c => c.Lignes).FirstOrDefaultAsync(c => c.Id_Commande == id);
+            var cmd = await _context.Commandes
+                .Include(c => c.Lignes)
+                .Include(c => c.Partenaire)
+                .Include(c => c.Devis)
+                .FirstOrDefaultAsync(c => c.Id_Commande == id);
             if (cmd == null || cmd.Statut == CommandeStatut.Facutree || cmd.Statut == CommandeStatut.Cloturee || cmd.Statut == CommandeStatut.Annulee)
                 return BadRequest(new { message = "Impossible d'annuler la commande. Les commandes facturées ou déjà annulées ne peuvent être modifiées." });
 
@@ -149,7 +171,6 @@ namespace example2.Controllers
             cmd.Statut = CommandeStatut.Facutree;
 
             var client = await _context.Partenaires.FirstOrDefaultAsync(p => p.Id_Partenaire == cmd.Id_Partenaire);
-            string nomClient = client != null ? $"{client.Nom} ({client.Entreprise})" : $"Partenaire #{cmd.Id_Partenaire}";
 
             var fact = new Facture
             {
@@ -163,7 +184,6 @@ namespace example2.Controllers
             };
 
             int next = (_context.Factures.Max(d => (int?)d.Id_Facture) ?? 0) + 1;
-
             fact.NumeroFacture = $"FAC-{now.Year}-{next:D3}";
 
             _context.Factures.Add(fact);
@@ -174,7 +194,9 @@ namespace example2.Controllers
                 Id_Facture = fact.Id_Facture,
                 NumeroFacture = fact.NumeroFacture,
                 Id_Commande = fact.Id_Commande,
+                NumeroCommande = cmd.NumeroCommande,
                 Id_Partenaire = fact.Id_Partenaire,
+                NomPartenaire = client != null ? $"{client.Nom} ({client.Entreprise})" : $"Partenaire #{fact.Id_Partenaire}",
                 DateFacture = fact.DateFacture,
                 DateEcheance = fact.DateEcheance,
                 MontantTotal = fact.MontantTotal,
@@ -192,7 +214,9 @@ namespace example2.Controllers
             {
                 Id_Commande = c.Id_Commande,
                 Id_Partenaire = c.Id_Partenaire,
+                NomPartenaire = c.Partenaire != null ? $"{c.Partenaire.Nom} ({c.Partenaire.Entreprise})" : $"Partenaire #{c.Id_Partenaire}",
                 Id_Devis = c.Id_Devis,
+                NumeroDevis = c.Devis != null ? c.Devis.NumeroDevis : null,
                 NumeroCommande = c.NumeroCommande,
                 DateCommande = c.DateCommande,
                 MontantHT = c.MontantHT,

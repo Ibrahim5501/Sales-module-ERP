@@ -6,11 +6,13 @@ using example2.DTOs;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 
 namespace example2.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class ProduitsController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -23,16 +25,21 @@ namespace example2.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<ProduitDto>>> Get()
         {
-            var produits = await _context.Produits.OrderBy(p => p.Code).ToListAsync();
+            var produits = await _context.Produits
+                .Include(p => p.Categorie)
+                .OrderBy(p => p.Code)
+                .ToListAsync();
             var dtos = produits.Select(p => new ProduitDto
             {
                 Id_Produit = p.Id_Produit,
                 Code = p.Code,
                 Designation = p.Designation,
                 Id_Categorie = p.Id_Categorie,
+                NomCategorie = p.Categorie != null ? p.Categorie.Nom : null,
                 Unite = p.Unite,
                 PrixUniversitaire = p.PrixUniversitaire,
                 QuantiteStock = p.QuantiteStock,
+                TauxTVA = p.TauxTVA,
                 Actif = p.Actif
             });
             return Ok(dtos);
@@ -41,7 +48,9 @@ namespace example2.Controllers
         [HttpGet("{id}")]
         public async Task<ActionResult<ProduitDto>> GetById(int id)
         {
-            var prod = await _context.Produits.FirstOrDefaultAsync(p => p.Id_Produit == id);
+            var prod = await _context.Produits
+                .Include(p => p.Categorie)
+                .FirstOrDefaultAsync(p => p.Id_Produit == id);
             if (prod == null) return NotFound(new { message = "Produit non trouvé." });
 
             var dto = new ProduitDto
@@ -50,9 +59,11 @@ namespace example2.Controllers
                 Code = prod.Code,
                 Designation = prod.Designation,
                 Id_Categorie = prod.Id_Categorie,
+                NomCategorie = prod.Categorie != null ? prod.Categorie.Nom : null,
                 Unite = prod.Unite,
                 PrixUniversitaire = prod.PrixUniversitaire,
                 QuantiteStock = prod.QuantiteStock,
+                TauxTVA = prod.TauxTVA,
                 Actif = prod.Actif
             };
             return Ok(dto);

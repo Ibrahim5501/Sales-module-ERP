@@ -7,11 +7,13 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 
 namespace example2.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class DevisController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -27,6 +29,7 @@ namespace example2.Controllers
         {
             var list = await _context.Devis
                 .Include(d => d.Lignes)
+                .Include(d => d.Partenaire)
                 .OrderByDescending(d => d.DateDevis)
                 .ToListAsync();
             return Ok(list.Select(MapToDto));
@@ -38,6 +41,7 @@ namespace example2.Controllers
         {
             var devis = await _context.Devis
                 .Include(d => d.Lignes)
+                .Include(d => d.Partenaire)
                 .FirstOrDefaultAsync(d => d.Id_Devis == id);
 
             if (devis == null)
@@ -93,6 +97,7 @@ namespace example2.Controllers
 
             _context.Devis.Add(devis);
             await _context.SaveChangesAsync();
+            devis.Partenaire = await _context.Partenaires.FirstOrDefaultAsync(p => p.Id_Partenaire == devis.Id_Partenaire);
 
             return CreatedAtAction(nameof(GetById), new { id = devis.Id_Devis }, MapToDto(devis));
         }
@@ -144,6 +149,7 @@ namespace example2.Controllers
             existing.MontantTVA = totalTTC - totalHT;
 
             await _context.SaveChangesAsync();
+            existing.Partenaire = await _context.Partenaires.FirstOrDefaultAsync(p => p.Id_Partenaire == existing.Id_Partenaire);
 
             return Ok(MapToDto(existing));
         }
@@ -175,6 +181,7 @@ namespace example2.Controllers
         {
             var devis = await _context.Devis
                 .Include(d => d.Lignes)
+                .Include(d => d.Partenaire)
                 .FirstOrDefaultAsync(d => d.Id_Devis == id);
 
             if (devis == null)
@@ -195,6 +202,7 @@ namespace example2.Controllers
         {
             var devis = await _context.Devis
                 .Include(d => d.Lignes)
+                .Include(d => d.Partenaire)
                 .FirstOrDefaultAsync(d => d.Id_Devis == id);
 
             if (devis == null)
@@ -253,11 +261,15 @@ namespace example2.Controllers
             commande.NumeroCommande = $"CMD-2026-{commande.Id_Commande:D3}";
             await _context.SaveChangesAsync();
 
+            var client = await _context.Partenaires.FirstOrDefaultAsync(p => p.Id_Partenaire == commande.Id_Partenaire);
+
             return Ok(new CommandeDto
             {
                 Id_Commande = commande.Id_Commande,
                 Id_Partenaire = commande.Id_Partenaire,
+                NomPartenaire = client != null ? $"{client.Nom} ({client.Entreprise})" : $"Partenaire #{commande.Id_Partenaire}",
                 Id_Devis = commande.Id_Devis,
+                NumeroDevis = devis.NumeroDevis,
                 NumeroCommande = commande.NumeroCommande,
                 DateCommande = commande.DateCommande,
                 MontantHT = commande.MontantHT,
@@ -285,6 +297,7 @@ namespace example2.Controllers
                 Id_Devis = d.Id_Devis,
                 NumeroDevis = d.NumeroDevis,
                 Id_Partenaire = d.Id_Partenaire,
+                NomPartenaire = d.Partenaire != null ? $"{d.Partenaire.Nom} ({d.Partenaire.Entreprise})" : $"Partenaire #{d.Id_Partenaire}",
                 DateDevis = d.DateDevis,
                 DateValidite = d.DateValidite,
                 Statut = d.Statut,
