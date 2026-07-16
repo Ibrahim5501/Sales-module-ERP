@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace example2.Models
 {
@@ -13,6 +14,7 @@ namespace example2.Models
 
         public bool Actif { get; set; }
 
+        [JsonIgnore]
         public ICollection<Produit> Produits { get; set; } = new List<Produit>();
     }
 }

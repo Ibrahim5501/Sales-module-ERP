@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace example2.Models
 {
@@ -20,10 +21,13 @@ namespace example2.Models
 
         // Navigation properties
 
+        [JsonIgnore]
         public ICollection<Devis> Devis { get; set; } = new List<Devis>();
 
+        [JsonIgnore]
         public ICollection<Commande> Commandes { get; set; } = new List<Commande>();
 
+        [JsonIgnore]
         public ICollection<Facture> Factures { get; set; } = new List<Facture>();
     }
 }

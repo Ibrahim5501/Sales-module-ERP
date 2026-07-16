@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace example2.Models
 {
@@ -29,6 +30,7 @@ namespace example2.Models
 
         public int Id_Partenaire { get; set; }
 
+        [JsonIgnore]
         public virtual Partenaire? Partenaire { get; set; }
     }
 

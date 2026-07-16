@@ -26,7 +26,18 @@ namespace example2.DTOs
     public class ProduitDto : ProduitCreateDto
     {
         public int Id_Produit { get; set; }
-        
+
+        public string Designation { get; set; } = string.Empty;
+
+        public string Unite { get; set; } = string.Empty;
+
+        public decimal PrixUniversitaire { get; set; }
+        public decimal TauxTVA { get; set; }
+
+        public decimal QuantiteStock { get; set; }
+
+        public bool Actif { get; set; }
+
         public string? NomCategorie { get; set; }
 
     }

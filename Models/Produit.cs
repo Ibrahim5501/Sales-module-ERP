@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace example2.Models
 {
@@ -28,8 +29,10 @@ namespace example2.Models
 
         public Categorie? Categorie { get; set; }
 
+        [JsonIgnore]
         public ICollection<DevisLigne> DevisLignes { get; set; } = new List<DevisLigne>();
 
+        [JsonIgnore]
         public ICollection<CommandeLigne> CommandeLignes { get; set; } = new List<CommandeLigne>();
     }
 }

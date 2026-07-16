@@ -21,6 +21,7 @@ namespace example2.DTOs
         public decimal MontantHT { get; set; }
 
         public decimal MontantTTC { get; set; }
+
         public int Id_Produit { get; set; }
 
     }
@@ -32,5 +33,8 @@ namespace example2.DTOs
     public class CommandeLigneDto : CommandeLigneCreateDto
     {
         public int Id_CommandeLigne { get; set; }
+
+        public string Designation {  get; set; }
+
     }
 }

@@ -28,6 +28,7 @@ namespace example2.Controllers
         {
             var list = await _context.Commandes
                 .Include(c => c.Lignes)
+                    .ThenInclude(l => l.Produit)
                 .Include(c => c.Partenaire)
                 .Include(c => c.Devis)
                 .OrderByDescending(c => c.DateCommande)
@@ -40,6 +41,7 @@ namespace example2.Controllers
         {
             var cmd = await _context.Commandes
                 .Include(c => c.Lignes)
+                    .ThenInclude(l => l.Produit)
                 .Include(c => c.Partenaire)
                 .Include(c => c.Devis)
                 .FirstOrDefaultAsync(c => c.Id_Commande == id);
@@ -105,6 +107,7 @@ namespace example2.Controllers
         {
             var cmd = await _context.Commandes
                 .Include(c => c.Lignes)
+                    .ThenInclude(l => l.Produit)
                 .Include(c => c.Partenaire)
                 .Include(c => c.Devis)
                 .FirstOrDefaultAsync(c => c.Id_Commande == id);
@@ -133,6 +136,7 @@ namespace example2.Controllers
         {
             var cmd = await _context.Commandes
                 .Include(c => c.Lignes)
+                    .ThenInclude(l => l.Produit)
                 .Include(c => c.Partenaire)
                 .Include(c => c.Devis)
                 .FirstOrDefaultAsync(c => c.Id_Commande == id);
@@ -232,7 +236,8 @@ namespace example2.Controllers
                     Remise = l.Remise,
                     MontantHT = l.MontantHT,
                     MontantTTC = l.MontantTTC,
-                    Id_Produit = l.Id_Produit
+                    Id_Produit = l.Id_Produit,
+                    Designation = l.Produit.Designation,
                 }).ToList()
             };
         }

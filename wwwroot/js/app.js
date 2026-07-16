@@ -7,7 +7,7 @@ DevExpress.localization.locale("fr");
 const originalFetch = window.fetch;
 window.fetch = async function (url, options) {
     options = options || {};
-    const token = localStorage.getItem("aura_erp_token");
+    const token = localStorage.getItem("digi_erp_token");
     
     // Ajouter l'en-tête d'autorisation pour les requêtes API locales
     if (token && (url.startsWith("/api/") || url.startsWith("api/"))) {
@@ -30,9 +30,9 @@ window.fetch = async function (url, options) {
 };
 
 function triggerLogout() {
-    localStorage.removeItem("aura_erp_token");
-    localStorage.removeItem("aura_erp_user_name");
-    localStorage.removeItem("aura_erp_user_email");
+    localStorage.removeItem("digi_erp_token");
+    localStorage.removeItem("digi_erp_user_name");
+    localStorage.removeItem("digi_erp_user_email");
     $("#login-screen").css("display", "flex");
     $(".app-container").css("display", "none");
     $("#login-password").val("");
@@ -40,7 +40,7 @@ function triggerLogout() {
 }
 
 function updateUserInfoUI() {
-    const userName = localStorage.getItem("aura_erp_user_name") || "Utilisateur";
+    const userName = localStorage.getItem("digi_erp_user_name") || "Utilisateur";
     $(".user-name").text(userName);
 }
 
@@ -89,9 +89,9 @@ $(document).ready(() => {
             }
 
             const data = await res.json();
-            localStorage.setItem("aura_erp_token", data.token);
-            localStorage.setItem("aura_erp_user_name", data.nom);
-            localStorage.setItem("aura_erp_user_email", data.email);
+            localStorage.setItem("digi_erp_token", data.token);
+            localStorage.setItem("digi_erp_user_name", data.nom);
+            localStorage.setItem("digi_erp_user_email", data.email);
 
             updateUserInfoUI();
             
@@ -122,7 +122,6 @@ $(document).ready(() => {
     initPopupClient();
     initPopupArticle();
     initPopupReglement();
-    initPopupCommande();
     initPopupDetailCommande();
     initPopupDevis();
 
@@ -133,15 +132,12 @@ $(document).ready(() => {
     $("#btn-creer-article-dx").on("click", () => {
         $("#popup-article").dxPopup("instance").show();
     });
-    $("#btn-creer-commande-dx").on("click", () => {
-        ouvrirNouvelleCommandePopup();
-    });
     $("#btn-creer-devis-dx").on("click", () => {
         ouvrirNouveauDevisPopup();
     });
 
     // Gérer l'état de démarrage de l'authentification
-    if (localStorage.getItem("aura_erp_token")) {
+    if (localStorage.getItem("digi_erp_token")) {
         updateUserInfoUI();
         $("#login-screen").hide();
         $(".app-container").css("display", "flex");
@@ -258,7 +254,7 @@ async function chargerToutesLesDonnees() {
 
 // FORMAT DEVISE HT
 function formatCurrency(val) {
-    return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(val);
+    return new Intl.NumberFormat('fr-FR', { style: 'currency' }).format(val);
 }
 
 // --- VUE TABLEAU DE BORD ---
@@ -289,7 +285,7 @@ async function chargerDashboard() {
                     $("<strong>").text(options.value).appendTo(container);
                 }},
                 { dataField: "entreprise", caption: "Entreprise" },
-                { dataField: "totalAchats", caption: "Total Commandé", format: { type: "currency", currency: "EUR" }, alignment: "right" },
+                { dataField: "totalAchats", caption: "Total Commandé", format: { type: "currency" }, alignment: "right" },
                 { dataField: "nombreCommandes", caption: "Commandes", alignment: "center" }
             ],
             showBorders: false,
@@ -340,8 +336,8 @@ function renderDashboardCharts(data) {
             point: { visible: true, size: 8 }
         },
         series: [
-            { valueField: "ventes", name: "Ventes facturées (€)", color: "#3b82f6" },
-            { valueField: "encaissements", name: "Règlements encaissés (€)", color: "#10b981" }
+            { valueField: "ventes", name: "Ventes facturées (TND)", color: "#3b82f6" },
+            { valueField: "encaissements", name: "Règlements encaissés (TND)", color: "#10b981" }
         ],
         argumentAxis: {
             label: { font: { family: "Inter", color: labelColor } },
@@ -401,6 +397,9 @@ async function chargerCommandes() {
         $("#grid-commandes").dxDataGrid({
             dataSource: commandesData,
             allowColumnReordering: true,
+            allowColumnResizing: true,
+            columnResizingMode: "widget",
+            columnAutoWidth: true,
             showBorders: false,
             searchPanel: { visible: true, width: 260, placeholder: "Rechercher une commande..." },
             filterRow: { visible: true },
@@ -415,7 +414,7 @@ async function chargerCommandes() {
                 { dataField: "numeroDevis", caption: "N° Devis", width: 130 },
                 { dataField: "dateCommande", caption: "Date", dataType: "date", format: "dd/MM/yyyy", width: 110 },
                 { dataField: "statut", caption: "Statut", width: 120, alignment: "center", cellTemplate: renderStatusBadge },
-                { dataField: "montantTTC", caption: "Montant TTC", format: { type: "currency", currency: "EUR" }, alignment: "right", width: 140 },
+                { dataField: "montantTTC", caption: "Montant TTC", format: { type: "currency" }, alignment: "right", width: 140 },
                 {
                     caption: "Actions",
                     alignment: "center",
@@ -451,36 +450,37 @@ function renderStatusBadge(container, options) {
 
 // RENDU ACTIONS DES COMMANDES
 function renderCommandeActions(container, options) {
+
     const c = options.data;
     const $wrapper = $("<div style='display:flex; justify-content:center;'>");
 
     // Bouton Voir Détails
     $("<a>").addClass("action-btn-dx btn-view")
         .html("<i class='fa-solid fa-eye'></i> Détails")
-        .on("click", () => ouvrirDetailCommande(c.id))
+        .on("click", () => ouvrirDetailCommande(c.id_Commande))
         .appendTo($wrapper);
 
-    if (c.statut === 'Brouillon') {
+    if (c.statut === 'EnAttente') {
         // Valider
         $("<a>").addClass("action-btn-dx btn-approve")
             .html("<i class='fa-solid fa-check'></i> Valider")
-            .on("click", () => validerCommande(c.id))
+            .on("click", () => validerCommande(c.id_Commande))
             .appendTo($wrapper);
         // Annuler
         $("<a>").addClass("action-btn-dx btn-cancel")
             .html("<i class='fa-solid fa-xmark'></i> Annuler")
-            .on("click", () => annulerCommande(c.id))
+            .on("click", () => annulerCommande(c.id_Commande))
             .appendTo($wrapper);
     } else if (c.statut === 'Validee') {
         // Facturer
         $("<a>").addClass("action-btn-dx btn-invoice")
             .html("<i class='fa-solid fa-file-invoice'></i> Facturer")
-            .on("click", () => facturerCommande(c.id))
+            .on("click", () => facturerCommande(c.id_Commande))
             .appendTo($wrapper);
         // Annuler
         $("<a>").addClass("action-btn-dx btn-cancel")
             .html("<i class='fa-solid fa-xmark'></i> Annuler")
-            .on("click", () => annulerCommande(c.id))
+            .on("click", () => annulerCommande(c.id_Commande))
             .appendTo($wrapper);
     }
 
@@ -567,7 +567,7 @@ async function ouvrirDetailCommande(id) {
         let badgeClass = 'badge-gray';
         let badgeLabel = c.statut;
         
-        if (c.statut === 'Brouillon') badgeClass = 'badge-gray';
+        if (c.statut === 'EnAttente') badgeClass = 'badge-gray';
         else if (c.statut === 'Validee') { badgeClass = 'badge-blue'; badgeLabel = 'Validée'; }
         else if (c.statut === 'Facturee') { badgeClass = 'badge-orange'; badgeLabel = 'Facturée'; }
         else if (c.statut === 'Cloturee') { badgeClass = 'badge-green'; badgeLabel = 'Clôturée'; }
@@ -575,14 +575,14 @@ async function ouvrirDetailCommande(id) {
 
         let linesHtml = '';
         c.lignes.forEach(l => {
-            const remiseStr = l.tauxRemise > 0 ? `(-${l.tauxRemise}%)` : '';
+            const remiseStr = l.remise > 0 ? `(-${l.remise}%)` : '';
             linesHtml += `
                 <div class="detail-item-row" style="display:flex; justify-content:space-between; padding:8px 12px; background:var(--bg-app); border-radius:4px; margin-bottom:8px; font-size:13px;">
                     <div style="display:flex; flex-direction:column;">
-                        <strong>${l.nomProduit}</strong>
-                        <span style="font-size:11px; color:var(--text-muted);">${l.quantite} x ${formatCurrency(l.prixUnitaire)} ${remiseStr}</span>
+                        <strong>${l.designation}</strong>
+                        <span style="font-size:11px; color:var(--text-muted);">${l.quantite} x ${formatCurrency(l.prixUniversitaire)} ${remiseStr}</span>
                     </div>
-                    <strong style="align-self:center;">${formatCurrency(l.montantTotal)}</strong>
+                    <strong style="align-self:center;">${formatCurrency(l.montantTTC)}</strong>
                 </div>
             `;
         });
@@ -594,14 +594,14 @@ async function ouvrirDetailCommande(id) {
                     <div><span style="color:var(--text-muted);">N° Commande:</span> <strong>${c.numeroCommande}</strong></div>
                     <div><span style="color:var(--text-muted);">Statut:</span> <span class="badge ${badgeClass}">${badgeLabel}</span></div>
                     <div><span style="color:var(--text-muted);">Date:</span> <strong>${dateFormatted}</strong></div>
-                    <div><span style="color:var(--text-muted);">Total TTC:</span> <strong class="text-primary">${formatCurrency(c.montantTotal)}</strong></div>
+                    <div><span style="color:var(--text-muted);">Total TTC:</span> <strong class="text-primary">${formatCurrency(c.montantTTC)}</strong></div>
                 </div>
             </div>
 
             <div style="margin-bottom: 20px;">
                 <h4 style="font-size:11px; text-transform:uppercase; color:var(--text-light); margin-bottom:6px; font-weight:700;">Client</h4>
                 <div style="padding:12px; background:var(--bg-app); border:1px solid var(--border); border-radius:8px; font-size:13px;">
-                    <strong>${c.nomClient}</strong>
+                    <strong>${c.nomPartenaire}</strong>
                 </div>
             </div>
 
@@ -643,6 +643,9 @@ async function chargerFactures() {
         
         $("#grid-factures").dxDataGrid({
             dataSource: facturesData,
+            allowColumnResizing: true,
+            columnResizingMode: "widget",
+            columnAutoWidth: true,
             showBorders: false,
             searchPanel: { visible: true, width: 260, placeholder: "Rechercher une facture..." },
             filterRow: { visible: true },
@@ -657,7 +660,7 @@ async function chargerFactures() {
                 { dataField: "dateFacture", caption: "Date Émission", dataType: "date", format: "dd/MM/yyyy", width: 120 },
                 { dataField: "dateEcheance", caption: "Date Échéance", dataType: "date", format: "dd/MM/yyyy", width: 120 },
                 { dataField: "statut", caption: "Statut", alignment: "center", width: 120, cellTemplate: renderStatusBadge },
-                { dataField: "montantTotal", caption: "Total TTC", format: { type: "currency", currency: "EUR" }, alignment: "right", width: 130 },
+                { dataField: "montantTotal", caption: "Total TTC", format: { type: "currency" }, alignment: "right", width: 130 },
                 { dataField: "montantRestant", caption: "Reste à Payer", alignment: "right", width: 130, cellTemplate: (container, options) => {
                     const r = options.value || 0;
                     const $span = $("<span>").text(formatCurrency(r));
@@ -674,7 +677,7 @@ async function chargerFactures() {
                         if (f.statut !== 'Payee' && f.statut !== 'Annulee') {
                             $("<button>").addClass("btn btn-secondary btn-small")
                                 .html("<i class='fa-solid fa-cash-register'></i> Régler")
-                                .on("click", () => ouvrirModalPaiement(f.idFacture, f.numeroFacture, reste))
+                                .on("click", () => ouvrirModalPaiement(f.id_Facture, f.numeroFacture, reste))
                                 .appendTo(container);
                         } else {
                             $("<span>").css({ color: "var(--text-muted)", fontSize: "12px" })
@@ -704,7 +707,7 @@ function initPopupReglement() {
             container.append(`
                 <div style="padding: 12px; background:var(--bg-app); border:1px solid var(--border); border-radius:8px; margin-bottom:16px; font-size:13px;">
                     <div><strong>Facture :</strong> <span id="dx-regle-ref">FAC-XXXX</span></div>
-                    <div style="margin-top:4px;"><strong>Reste à régler :</strong> <span id="dx-regle-reste" class="text-danger font-semibold">0,00 €</span></div>
+                    <div style="margin-top:4px;"><strong>Reste à régler :</strong> <span id="dx-regle-reste" class="text-danger font-semibold">0,000 TND</span></div>
                 </div>
                 <div id="dx-form-reglement"></div>
             `);
@@ -748,17 +751,17 @@ function ouvrirModalPaiement(id, ref, reste) {
         items: [
             {
                 dataField: "montant",
-                label: { text: "Montant perçu (€)" },
+                label: { text: "Montant perçu (TND)" },
                 editorType: "dxNumberBox",
                 editorOptions: {
-                    min: 0.01,
+                    min: 0.001,
                     max: reste,
-                    format: "#,##0.00 €",
+                    format: "#,###0.000 TND",
                     showClearButton: true
                 },
                 validationRules: [
                     { type: "required", message: "Le montant est requis." },
-                    { type: "range", min: 0.01, max: reste, message: "Le montant doit être compris entre 0,01 et le reste à payer." }
+                    { type: "range", min: 0.001, max: reste, message: "Le montant doit être compris entre 0,001 et le reste à payer." }
                 ]
             }
         ]
@@ -805,6 +808,9 @@ async function chargerClients() {
 
         $("#grid-clients").dxDataGrid({
             dataSource: clientsData,
+            allowColumnResizing: true,
+            columnResizingMode: "widget",
+            columnAutoWidth: true,
             showBorders: false,
             searchPanel: { visible: true, width: 260, placeholder: "Rechercher un client..." },
             filterRow: { visible: true },
@@ -818,19 +824,6 @@ async function chargerClients() {
                 { dataField: "email", caption: "Email" },
                 { dataField: "telephone", caption: "Téléphone", width: 140 },
                 { dataField: "adresse", caption: "Adresse Postale" },
-                { dataField: "limiteCredit", caption: "Limite Crédit", format: { type: "currency", currency: "EUR" }, alignment: "right", width: 120 },
-                { dataField: "solde", caption: "Solde Dû", format: { type: "currency", currency: "EUR" }, alignment: "right", width: 120, cellTemplate: (container, options) => {
-                    const solde = options.value;
-                    const $span = $("<span>").text(formatCurrency(solde));
-                    if (solde > 0) $span.addClass("text-danger font-semibold");
-                    $span.appendTo(container);
-                }},
-                { dataField: "actif", caption: "Statut", dataType: "boolean", width: 100, alignment: "center", cellTemplate: (container, options) => {
-                    const active = options.value;
-                    $("<span>").addClass(`badge ${active ? 'badge-green' : 'badge-gray'}`)
-                        .text(active ? 'ACTIF' : 'INACTIF')
-                        .appendTo(container);
-                }}
             ]
         });
     } catch (err) {
@@ -885,8 +878,6 @@ function initPopupClient() {
                     { dataField: "email", label: { text: "Adresse E-mail" }, validationRules: [{ type: "required", message: "L'email est requis." }, { type: "email", message: "Format d'email invalide." }] },
                     { dataField: "telephone", label: { text: "Téléphone" } },
                     { dataField: "adresse", label: { text: "Adresse Postale" } },
-                    { dataField: "limiteCredit", label: { text: "Limite de Crédit (€)" }, editorType: "dxNumberBox", editorOptions: { min: 0, format: "#,##0 €" } },
-                    { dataField: "actif", label: { text: "Fiche active ?" }, editorType: "dxSwitch" }
                 ]
             });
         }
@@ -926,8 +917,11 @@ async function chargerProduits() {
         const res = await fetch('/api/produits');
         produitsData = await res.json();
 
-                $("#grid-articles").dxDataGrid({
+        $("#grid-articles").dxDataGrid({
             dataSource: produitsData,
+            allowColumnResizing: true,
+            columnResizingMode: "widget",
+            columnAutoWidth: true,
             showBorders: false,
             searchPanel: { visible: true, width: 260, placeholder: "Rechercher un article..." },
             filterRow: { visible: true },
@@ -940,12 +934,34 @@ async function chargerProduits() {
                 { dataField: "designation", caption: "D\u00e9signation" },
                 { dataField: "nomCategorie", caption: "Cat\u00e9gorie", width: 150 },
                 { dataField: "unite", caption: "Unit\u00e9", width: 80, alignment: "center" },
-                { dataField: "prixUniversitaire", caption: "Prix Unit. HT", format: { type: "currency", currency: "EUR" }, alignment: "right", width: 130 },
+                { dataField: "prixUniversitaire", caption: "Prix Unit. HT", format: { type: "currency" }, alignment: "right", width: 130 },
                 { dataField: "tauxTVA", caption: "TVA (%)", alignment: "center", width: 80 },
                 { dataField: "quantiteStock", caption: "Stock", alignment: "center", width: 180, cellTemplate: renderStockProgressBar },
                 { dataField: "actif", caption: "Actif", dataType: "boolean", width: 80, alignment: "center", cellTemplate: (container, options) => {
-                    $("<span>").addClass("badge " + (options.value ? "badge-green" : "badge-gray"))
-                        .text(options.value ? "OUI" : "NON").appendTo(container);
+                    $("<div>").dxSwitch({
+
+                        value: options.value,
+
+                        onValueChanged: async function (e) {
+
+                            await fetch(`/api/produits/${options.data.id_Produit}/statut`, {
+
+                                method: "PUT",
+
+                                headers: {
+                                    "Content-Type": "application/json"
+                                },
+
+                                body: JSON.stringify({
+                                    actif: e.value
+                                })
+
+                            });
+
+                            showToast("Statut modifié");
+                        }
+
+                    }).appendTo(container);
                 }}
             ]
         });
@@ -980,6 +996,18 @@ function renderStockProgressBar(container, options) {
         </div>
     `);
     $wrapper.appendTo(container);
+}
+
+// CHARGER CATEGORIES
+let categoriesData = [];
+async function chargerCategories() {
+    const res = await fetch('/api/categories');
+
+    if (!res.ok) {
+        throw new Error("Impossible de charger les catégories.");
+    }
+
+    categoriesData = await res.json();
 }
 
 // CREER ARTICLE (POPUP DX)
@@ -1017,26 +1045,106 @@ function initPopupArticle() {
                 }
             }
         ],
-        onShowing: () => {
+        onShowing: async () => {
+
+            await chargerCategories();
+
             $("#dx-form-article").dxForm({
-                formData: { codeArticle: "", nom: "", categorie: "Électronique", prixUnitaire: 0, quantiteStock: 10, unite: "Unité", seuilAlerte: 3, description: "" },
+                formData: {
+                    Code: "",
+                    Designation: "",
+                    id_Categorie: null,
+                    prixUniversitaire: 0,
+                    QuantiteStock: 10,
+                    Unite: "Unité",
+                    seuilAlerte: 3,
+                    TauxTVA: 19,
+                    Actif: 1
+                },
+
                 labelLocation: "top",
+
                 items: [
-                    { dataField: "codeArticle", label: { text: "Code Unique (SKU)" }, validationRules: [{ type: "required", message: "Le code SKU est requis." }] },
-                    { dataField: "nom", label: { text: "Nom de l'Article" }, validationRules: [{ type: "required", message: "La désignation est requise." }] },
-                    { 
-                        dataField: "categorie", 
-                        label: { text: "Catégorie" }, 
-                        editorType: "dxSelectBox", 
-                        editorOptions: { items: ["Électronique", "Mobilier", "Accessoires", "Fournitures"] } 
+                    {
+                        dataField: "Code",
+                        label: { text: "Code Unique (SKU)" },
+                        validationRules: [
+                            {
+                                type: "required",
+                                message: "Le code SKU est requis."
+                            }
+                        ]
                     },
-                    { dataField: "prixUnitaire", label: { text: "Prix Unitaire HT (€)" }, editorType: "dxNumberBox", editorOptions: { min: 0.01, format: "#,##0.00 €" }, validationRules: [{ type: "required", message: "Le prix est requis." }] },
-                    { dataField: "quantiteStock", label: { text: "Stock Initial" }, editorType: "dxNumberBox", editorOptions: { min: 0 } },
-                    { dataField: "unite", label: { text: "Unité de vente" } },
-                    { dataField: "seuilAlerte", label: { text: "Seuil d'alerte stock" }, editorType: "dxNumberBox", editorOptions: { min: 0 } },
-                    { dataField: "description", label: { text: "Description technique" }, editorType: "dxTextArea", editorOptions: { rows: 2 } }
+
+                    {
+                        dataField: "Designation",
+                        label: { text: "Nom de l'Article" },
+                        validationRules: [
+                            {
+                                type: "required",
+                                message: "La désignation est requise."
+                            }
+                        ]
+                    },
+
+                    {
+                        dataField: "id_Categorie",
+                        label: { text: "Catégorie" },
+                        editorType: "dxSelectBox",
+                        editorOptions: {
+                            dataSource: categoriesData,
+
+                            displayExpr: "nom",
+
+                            valueExpr: "id_Categorie",
+
+                            searchEnabled: true,
+
+                            placeholder: "Sélectionner une catégorie"
+                        }
+                    },
+
+                    {
+                        dataField: "prixUniversitaire",
+                        label: { text: "Prix Unitaire HT (TND)" },
+                        editorType: "dxNumberBox",
+                        editorOptions: {
+                            min: 0.01,
+                            format: "#,###0.000 TND"
+                        }
+                    },
+
+                    {
+                        dataField: "QuantiteStock",
+                        label: { text: "Stock Initial" },
+                        editorType: "dxNumberBox",
+                        editorOptions: { min: 0 }
+                    },
+
+                    {
+                        dataField: "TauxTVA",
+                        label: { text: "TVA (%)" },
+                        editorType: "dxNumberBox",
+                        editorOptions: {
+                            min: 0.1,
+                            format: "00.0%"
+                        }
+                    },
+
+                    {
+                        dataField: "Unite",
+                        label: { text: "Unité de vente (cm, kg, etc...)" }
+                    },
+
+                    {
+                        dataField: "seuilAlerte",
+                        label: { text: "Seuil d'alerte stock" },
+                        editorType: "dxNumberBox",
+                        editorOptions: { min: 0 }
+                    },
                 ]
             });
+
         }
     });
 }
@@ -1069,211 +1177,6 @@ async function soumettreArticle() {
     } catch (err) {
         showToast(err.message, true);
     }
-}
-
-// --- WIZARD CRÉATION COMMANDE (POPUP AVANCÉ dxPopup + dxForm + dxDataGrid) ---
-function initPopupCommande() {
-    $("#popup-commande").dxPopup({
-        title: "Créer un Bon de Commande client",
-        width: 800,
-        height: "auto",
-        visible: false,
-        dragEnabled: true,
-        showCloseButton: true,
-        contentTemplate: (container) => {
-            container.append(`
-                <div id="dx-form-commande-header"></div>
-                <div style="margin-top:20px; border-top:1px dashed var(--border); padding-top:15px;">
-                    <h4 style="font-weight:700; font-size:13.5px; margin-bottom:8px;"><i class="fa-solid fa-list"></i> Lignes de Commande</h4>
-                    <div id="dx-grid-commande-lines"></div>
-                </div>
-                <div class="order-summary-box" style="margin-top:15px; margin-left:auto; width:260px; padding:10px; background:var(--bg-app); border:1px solid var(--border); border-radius:6px; font-size:12.5px;">
-                    <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
-                        <span>Total HT :</span>
-                        <span id="cmd-summary-subtotal">0,00 €</span>
-                    </div>
-                    <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
-                        <span>TVA (20%) :</span>
-                        <span id="cmd-summary-tva">0,00 €</span>
-                    </div>
-                    <div style="display:flex; justify-content:space-between; font-weight:700; border-top:1px solid var(--border); padding-top:4px; color:var(--navy); font-size:13.5px;">
-                        <span>Montant TTC :</span>
-                        <span id="cmd-summary-total">0,00 €</span>
-                    </div>
-                </div>
-            `);
-        },
-        toolbarItems: [
-            {
-                shortcut: "done",
-                location: "after",
-                toolbar: "bottom",
-                widget: "dxButton",
-                options: {
-                    text: "Créer Commande (Brouillon)",
-                    type: "default",
-                    onClick: () => soumettreCommande()
-                }
-            },
-            {
-                shortcut: "cancel",
-                location: "after",
-                toolbar: "bottom",
-                widget: "dxButton",
-                options: {
-                    text: "Annuler",
-                    onClick: () => $("#popup-commande").dxPopup("instance").hide()
-                }
-            }
-        ]
-    });
-}
-
-let internalCommandeLines = [];
-function ouvrirNouvelleCommandePopup() {
-    internalCommandeLines = [];
-    
-    // Réinitialiser les totaux à l'affichage
-    $("#cmd-summary-subtotal").text("0,00 €");
-    $("#cmd-summary-tva").text("0,00 €");
-    $("#cmd-summary-total").text("0,00 €");
-
-    const popup = $("#popup-commande").dxPopup("instance");
-    popup.show();
-
-    // 1. Initialiser le formulaire d'en-tête
-    $("#dx-form-commande-header").dxForm({
-        formData: { clientId: null, notes: "" },
-        colCount: 2,
-        items: [
-            {
-                dataField: "clientId",
-                label: { text: "Client à facturer" },
-                editorType: "dxSelectBox",
-                editorOptions: {
-                    dataSource: clientsData.filter(c => c.actif),
-                    valueExpr: "id",
-                    displayExpr: (item) => item ? `${item.nom} (${item.entreprise})` : "",
-                    searchEnabled: true,
-                    placeholder: "-- Choisir le client --"
-                },
-                validationRules: [{ type: "required", message: "Le choix du client est obligatoire." }]
-            },
-            {
-                dataField: "notes",
-                label: { text: "Notes / Delivery Instructions" },
-                editorType: "dxTextBox",
-                editorOptions: { placeholder: "Ex: Livraison quai B, appeler avant..." }
-            }
-        ]
-    });
-
-    // 2. Initialiser la grille des lignes d'articles
-    $("#dx-grid-commande-lines").dxDataGrid({
-        dataSource: internalCommandeLines,
-        editing: {
-            mode: "cell",
-            allowAdding: true,
-            allowUpdating: true,
-            allowDeleting: true,
-            newRowPosition: "last"
-        },
-        showBorders: true,
-        height: 180,
-        scrolling: { mode: "virtual" },
-        columns: [
-            {
-                dataField: "produitId",
-                caption: "Article / Produit",
-                lookup: {
-                    dataSource: produitsData,
-                    valueExpr: "id",
-                    displayExpr: (item) => item ? `${item.nom} (Stock: ${item.quantiteStock})` : ""
-                },
-                validationRules: [{ type: "required", message: "L'article est requis." }],
-                // Quand on choisit le produit, auto-remplir les données de prix de la ligne
-                setCellValue: (rowData, value) => {
-                    rowData.produitId = value;
-                    const prod = produitsData.find(p => p.id === value);
-                    if (prod) {
-                        rowData.nomProduit = prod.nom;
-                        rowData.prixUnitaire = prod.prixUnitaire;
-                        rowData.quantite = 1;
-                        rowData.tauxRemise = 0;
-                    }
-                }
-            },
-            {
-                dataField: "prixUnitaire",
-                caption: "Prix Unit. HT",
-                dataType: "number",
-                format: { type: "currency", currency: "EUR" },
-                allowEditing: false,
-                width: 100,
-                alignment: "right"
-            },
-            {
-                dataField: "quantite",
-                caption: "Qté",
-                dataType: "number",
-                width: 70,
-                alignment: "center",
-                editorOptions: { min: 1 },
-                validationRules: [{ type: "required" }]
-            },
-            {
-                dataField: "tauxRemise",
-                caption: "Remise (%)",
-                dataType: "number",
-                width: 90,
-                alignment: "center",
-                editorOptions: { min: 0, max: 100 }
-            },
-            {
-                caption: "Total HT",
-                dataType: "number",
-                format: { type: "currency", currency: "EUR" },
-                allowEditing: false,
-                alignment: "right",
-                width: 110,
-                // Cellule calculée dynamiquement à la saisie
-                calculateCellValue: (rowData) => {
-                    if (!rowData.prixUnitaire) return 0;
-                    const price = rowData.prixUnitaire;
-                    const qty = rowData.quantite || 1;
-                    const disc = rowData.tauxRemise || 0;
-                    return (price - (price * (disc / 100))) * qty;
-                }
-            }
-        ],
-        // Recalculer les totaux de la commande à chaque modification
-        onRowInserted: () => recalculerTotauxCommandePopup(),
-        onRowUpdated: () => recalculerTotauxCommandePopup(),
-        onRowRemoved: () => recalculerTotauxCommandePopup()
-    });
-}
-
-function recalculerTotauxCommandePopup() {
-    const grid = $("#dx-grid-commande-lines").dxDataGrid("instance");
-    // Obtenir le contenu brut
-    const items = grid.option("dataSource") || [];
-    
-    let subtotal = 0;
-    items.forEach(line => {
-        if (line.prixUnitaire) {
-            const price = line.prixUnitaire;
-            const qty = line.quantite || 1;
-            const disc = line.tauxRemise || 0;
-            subtotal += (price - (price * (disc / 100))) * qty;
-        }
-    });
-
-    const tva = subtotal * 0.2; // 20%
-    const total = subtotal + tva;
-
-    $("#cmd-summary-subtotal").text(formatCurrency(subtotal));
-    $("#cmd-summary-tva").text(formatCurrency(tva));
-    $("#cmd-summary-total").text(formatCurrency(total));
 }
 
 async function soumettreCommande() {
@@ -1362,6 +1265,9 @@ async function chargerDevis() {
 
         $("#grid-devis").dxDataGrid({
             dataSource: devisData,
+            allowColumnResizing: true,
+            columnResizingMode: "widget",
+            columnAutoWidth: true,
             allowColumnReordering: true,
             showBorders: false,
             searchPanel: { visible: true, width: 260, placeholder: "Rechercher un devis..." },
@@ -1377,8 +1283,8 @@ async function chargerDevis() {
                 { dataField: "dateDevis", caption: "Date", dataType: "date", format: "dd/MM/yyyy", width: 110 },
                 { dataField: "dateValidite", caption: "Validité", dataType: "date", format: "dd/MM/yyyy", width: 110 },
                 { dataField: "statut", caption: "Statut", width: 120, alignment: "center", cellTemplate: renderDevisBadge },
-                { dataField: "montantHT", caption: "Montant HT", format: { type: "currency", currency: "EUR" }, alignment: "right", width: 130 },
-                { dataField: "montantTTC", caption: "Total TTC", format: { type: "currency", currency: "EUR" }, alignment: "right", width: 130 },
+                { dataField: "montantHT", caption: "Montant HT", format: { type: "currency" }, alignment: "right", width: 130 },
+                { dataField: "montantTTC", caption: "Total TTC", format: { type: "currency" }, alignment: "right", width: 130 },
                 {
                     caption: "Actions",
                     alignment: "center",
@@ -1487,13 +1393,13 @@ function initPopupDevis() {
                 </div>
                 <div style="margin-top:15px; margin-left:auto; width:260px; padding:10px; background:var(--bg-app); border:1px solid var(--border); border-radius:6px; font-size:12.5px;">
                     <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
-                        <span>Total HT :</span><span id="devis-summary-ht">0,00 €</span>
+                        <span>Total HT :</span><span id="devis-summary-ht">0,000 TND</span>
                     </div>
                     <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
-                        <span>TVA (20%) :</span><span id="devis-summary-tva">0,00 €</span>
+                        <span>TVA (%) :</span><span id="devis-summary-tva">0,000 TND</span>
                     </div>
                     <div style="display:flex; justify-content:space-between; font-weight:700; border-top:1px solid var(--border); padding-top:4px; color:var(--navy); font-size:13.5px;">
-                        <span>Total TTC :</span><span id="devis-summary-ttc">0,00 €</span>
+                        <span>Total TTC :</span><span id="devis-summary-ttc">0,000 TND</span>
                     </div>
                 </div>
             `);
@@ -1514,9 +1420,9 @@ function initPopupDevis() {
 let internalDevisLines = [];
 function ouvrirNouveauDevisPopup() {
     internalDevisLines = [];
-    $("#devis-summary-ht").text("0,00 €");
-    $("#devis-summary-tva").text("0,00 €");
-    $("#devis-summary-ttc").text("0,00 €");
+    $("#devis-summary-ht").text("0,000 TND");
+    $("#devis-summary-tva").text("0,000 TND");
+    $("#devis-summary-ttc").text("0,000 TND");
 
     const popup = $("#popup-devis").dxPopup("instance");
     popup.show();
@@ -1543,6 +1449,9 @@ function ouvrirNouveauDevisPopup() {
     // Grille lignes
     $("#dx-grid-devis-lines").dxDataGrid({
         dataSource: internalDevisLines,
+        allowColumnResizing: true,
+        columnResizingMode: "widget",
+        columnAutoWidth: true,
         editing: { mode: "cell", allowAdding: true, allowUpdating: true, allowDeleting: true, newRowPosition: "last" },
         showBorders: true,
         height: 200,
@@ -1560,23 +1469,23 @@ function ouvrirNouveauDevisPopup() {
                     rowData.produitId = value;
                     const prod = produitsData.find(p => p.id_Produit === value);
                     if (prod) {
-                        rowData.prixUnitaire = prod.prixUniversitaire;
+                        rowData.prixUniversitaire = prod.prixUniversitaire;
                         rowData.tauxTVA = prod.tauxTVA || 20;
                         rowData.quantite = 1;
                         rowData.remise = 0;
                     }
                 }
             },
-            { dataField: "prixUnitaire", caption: "Prix Unit. HT", dataType: "number", format: { type: "currency", currency: "EUR" }, allowEditing: false, width: 120, alignment: "right" },
+            { dataField: "prixUniversitaire", caption: "Prix Unit. HT", dataType: "number", format: { type: "currency" }, allowEditing: false, width: 120, alignment: "right" },
             { dataField: "quantite", caption: "Qté", dataType: "number", width: 70, alignment: "center", editorOptions: { min: 1 }, validationRules: [{ type: "required" }] },
             { dataField: "remise", caption: "Remise (%)", dataType: "number", width: 90, alignment: "center", editorOptions: { min: 0, max: 100 } },
             { dataField: "tauxTVA", caption: "TVA (%)", dataType: "number", width: 80, alignment: "center" },
             {
-                caption: "Total HT", dataType: "number", format: { type: "currency", currency: "EUR" },
+                caption: "Total HT", dataType: "number", format: { type: "currency" },
                 allowEditing: false, alignment: "right", width: 120,
                 calculateCellValue: (row) => {
-                    if (!row.prixUnitaire) return 0;
-                    return (row.prixUnitaire - (row.prixUnitaire * ((row.remise || 0) / 100))) * (row.quantite || 1);
+                    if (!row.prixUniversitaire) return 0;
+                    return (row.prixUniversitaire - (row.prixUniversitaire * ((row.remise || 0) / 100))) * (row.quantite || 1);
                 }
             }
         ],
@@ -1590,16 +1499,17 @@ function recalculerTotauxDevisPopup() {
     const grid = $("#dx-grid-devis-lines").dxDataGrid("instance");
     const items = grid.option("dataSource") || [];
     let totalHT = 0;
+    let totalTVA = 0;
     items.forEach(l => {
-        if (l.prixUnitaire) {
-            totalHT += (l.prixUnitaire - (l.prixUnitaire * ((l.remise || 0) / 100))) * (l.quantite || 1);
+        if (l.prixUniversitaire) {
+            totalHT += (l.prixUniversitaire - (l.prixUniversitaire * ((l.remise || 0) / 100))) * (l.quantite || 1);
+            totalTVA += totalHT * (l.TauxTVA/100);
         }
     });
-    const tva = totalHT * 0.2;
-    const ttc = totalHT + tva;
+    const totalTTC = totalHT + totalTVA;
     $("#devis-summary-ht").text(formatCurrency(totalHT));
-    $("#devis-summary-tva").text(formatCurrency(tva));
-    $("#devis-summary-ttc").text(formatCurrency(ttc));
+    $("#devis-summary-tva").text(formatCurrency(totalTVA));
+    $("#devis-summary-ttc").text(formatCurrency(totalTTC));
 }
 
 async function soumettreDevis() {
@@ -1622,8 +1532,8 @@ async function soumettreDevis() {
             id_Produit: l.produitId,
             description: "",
             quantite: l.quantite || 1,
-            prixUniversitaire: l.prixUnitaire || 0,
-            tauxTVA: l.tauxTVA || 20,
+            prixUniversitaire: l.prixUniversitaire || 0,
+            TauxTVA: l.TauxTVA || 19,
             remise: l.remise || 0,
             montantHT: 0,
             montantTTC: 0

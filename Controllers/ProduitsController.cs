@@ -146,5 +146,20 @@ namespace example2.Controllers
             await _context.SaveChangesAsync();
             return NoContent();
         }
+
+        [HttpPut("{id}/statut")]
+        public IActionResult ChangeStatut(int id, [FromBody] bool actif)
+        {
+            var produit = _context.Produits.Find(id);
+
+            if (produit == null)
+                return NotFound();
+
+            produit.Actif = actif;
+
+            _context.SaveChanges();
+
+            return Ok();
+        }
     }
 }
