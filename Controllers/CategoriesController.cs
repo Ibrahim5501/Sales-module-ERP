@@ -69,7 +69,7 @@ namespace example2.Controllers
             {
                 Nom = dto.Nom,
                 Description = dto.Description,
-                Actif = dto.Actif
+                Actif = true
             };
 
             _context.Categories.Add(categorie);

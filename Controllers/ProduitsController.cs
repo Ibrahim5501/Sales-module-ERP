@@ -82,7 +82,7 @@ namespace example2.Controllers
                 Unite = produitDto.Unite,
                 PrixUniversitaire = produitDto.PrixUniversitaire,
                 QuantiteStock = produitDto.QuantiteStock,
-                Actif = produitDto.Actif
+                Actif = true
             };
 
             _context.Produits.Add(produit);
@@ -117,7 +117,7 @@ namespace example2.Controllers
             existing.Unite = produitDto.Unite;
             existing.PrixUniversitaire = produitDto.PrixUniversitaire;
             existing.QuantiteStock = produitDto.QuantiteStock;
-            existing.Actif = produitDto.Actif;
+            existing.Actif = existing.Actif;
 
             await _context.SaveChangesAsync();
 
@@ -147,7 +147,7 @@ namespace example2.Controllers
             return NoContent();
         }
 
-        [HttpPut("{id}/statut")]
+        [HttpPut("{id}/Actif")]
         public IActionResult ChangeStatut(int id, [FromBody] bool actif)
         {
             var produit = _context.Produits.Find(id);
@@ -160,6 +160,21 @@ namespace example2.Controllers
             _context.SaveChanges();
 
             return Ok();
+        }
+
+        [HttpPut("{id}/stock")]
+        public async Task<IActionResult> AjouterStock(int id, [FromBody] int stock)
+        {
+            var produit = await _context.Produits.FindAsync(id);
+
+            if (produit == null)
+                return NotFound();
+
+            produit.QuantiteStock += stock;
+
+            await _context.SaveChangesAsync();
+
+            return Ok(produit.QuantiteStock);
         }
     }
 }

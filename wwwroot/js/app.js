@@ -50,9 +50,12 @@ let produitsData = [];
 let commandesData = [];
 let facturesData = [];
 let devisData = [];
+let categoriesData = [];
+let internalDevisLines = [];
 let activeTab = 'tableau-bord';
-let darkTheme = false;
 let toastInstance = null;
+let activeReglementFactId = 0;
+let produitSelectionne = null;
 
 // INITIALISATION DE L'APPLICATION
 $(document).ready(() => {
@@ -90,7 +93,7 @@ $(document).ready(() => {
 
             const data = await res.json();
             localStorage.setItem("digi_erp_token", data.token);
-            localStorage.setItem("digi_erp_user_name", data.nom);
+            localStorage.setItem("digi_erp_user_name", data.email);
             localStorage.setItem("digi_erp_user_email", data.email);
 
             updateUserInfoUI();
@@ -99,7 +102,7 @@ $(document).ready(() => {
             $("#login-screen").hide();
             $(".app-container").css("display", "flex");
             
-            showToast("Connexion réussie. Bienvenue, " + data.nom + " !");
+            showToast("Connexion réussie. Bienvenue, " + data.email + " !");
             
             // Charger les listes de base et le dashboard
             chargerToutesLesDonnees();
@@ -115,15 +118,13 @@ $(document).ready(() => {
     // Configurer la navigation SPA
     setupNavigation();
 
-    // Configurer le bouton de changement de thème
-    setupThemeToggle();
-
     // Initialiser les widgets de Popups
     initPopupClient();
     initPopupArticle();
     initPopupReglement();
     initPopupDetailCommande();
     initPopupDevis();
+    initPopupCategorie();
 
     // Lier les boutons d'ouverture aux Popups DevExtreme
     $("#btn-creer-client-dx").on("click", () => {
@@ -146,6 +147,27 @@ $(document).ready(() => {
         $("#login-screen").css("display", "flex");
         $(".app-container").css("display", "none");
     }
+
+    $("#popup-ajout-stock").dxPopup({
+        title: "Ajouter du stock",
+        width: 350,
+        height: "auto",
+        visible: false,
+        showCloseButton: true,
+        contentTemplate: (container) => {
+            $("<div id='form-ajout-stock'>").appendTo(container);
+        },
+        toolbarItems: [{
+            widget: "dxButton",
+            toolbar: "bottom",
+            location: "after",
+            options: {
+                text: "Ajouter",
+                type: "success",
+                onClick: ajouterStock
+            }
+        }]
+    });
 });
 
 // INITIALISER DX TOAST
@@ -154,8 +176,21 @@ function initToast() {
         displayTime: 3000,
         position: "bottom right",
         animation: {
-            show: { type: "slide", duration: 300, from: { position: { my: "right bottom", at: "right bottom", offset: "0 100" } } },
-            hide: { type: "fadeOut", duration: 200 }
+            show: {
+                type: "slide",
+                duration: 300,
+                from: {
+                    position: {
+                        my: "right bottom",
+                        at: "right bottom",
+                        offset: "0 100"
+                    }
+                }
+            },
+            hide: {
+                type: "fadeOut",
+                duration: 200
+            }
         }
     }).dxToast("instance");
 }
@@ -213,26 +248,6 @@ function switchTab(tabId) {
     }
 }
 
-// THEME TOGGLE (DARK MODE)
-function setupThemeToggle() {
-    $("#theme-btn").on("click", () => {
-        darkTheme = !darkTheme;
-        $("body").toggleClass("dark-mode", darkTheme);
-        const icon = $("#theme-btn").find("i");
-        
-        if (darkTheme) {
-            icon.attr("class", "fa-solid fa-sun");
-        } else {
-            icon.attr("class", "fa-solid fa-moon");
-        }
-
-        // Si sur le dashboard, rafraîchir pour adapter les couleurs de graphiques
-        if (activeTab === 'tableau-bord') {
-            chargerDashboard();
-        }
-    });
-}
-
 // CHARGEMENT INITIAL DES DONNÉES
 async function chargerToutesLesDonnees() {
     try {
@@ -254,7 +269,7 @@ async function chargerToutesLesDonnees() {
 
 // FORMAT DEVISE HT
 function formatCurrency(val) {
-    return new Intl.NumberFormat('fr-FR', { style: 'currency' }).format(val);
+    return new Intl.NumberFormat('fr-FR').format(val);
 }
 
 // --- VUE TABLEAU DE BORD ---
@@ -281,23 +296,41 @@ async function chargerDashboard() {
         $("#grid-top-clients").dxDataGrid({
             dataSource: data.topClients,
             columns: [
-                { dataField: "nomClient", caption: "Client", cellTemplate: (container, options) => {
-                    $("<strong>").text(options.value).appendTo(container);
+                {
+                    dataField: "nomClient",
+                    caption: "Client",
+                    cellTemplate: (container, options) => {
+                        $("<strong>").text(options.value).appendTo(container);
                 }},
-                { dataField: "entreprise", caption: "Entreprise" },
-                { dataField: "totalAchats", caption: "Total Commandé", format: { type: "currency" }, alignment: "right" },
-                { dataField: "nombreCommandes", caption: "Commandes", alignment: "center" }
+                {
+                    dataField: "entreprise",
+                    caption: "Entreprise"
+                },
+                {
+                    dataField: "totalAchats",
+                    caption: "Total Commandé",
+                    alignment: "right"
+                },
+                {
+                    dataField: "nombreCommandes",
+                    caption: "Commandes",
+                    alignment: "center"
+                }
             ],
             showBorders: false,
             showColumnHeaders: true,
-            paging: { enabled: false },
-            scrolling: { mode: "none" }
+            paging: {
+                enabled: false
+            },
+            scrolling: {
+                mode: "none"
+            }
         });
 
         // Alertes stocks
         const alertsContainer = $("#dashboard-stock-alerts");
         alertsContainer.empty();
-        const alertProds = produitsData.filter(p => p.quantiteStock <= p.seuilAlerte);
+        const alertProds = produitsData.filter(p => p.quantiteStock <= 5);
         if (alertProds.length === 0) {
             alertsContainer.html(`<div class="text-center text-muted" style="padding:24px;">Tous les stocks sont corrects.</div>`);
         } else {
@@ -307,8 +340,8 @@ async function chargerDashboard() {
                     <div class="alert-item ${enRupture ? '' : 'warning'}">
                         <div class="alert-item-icon"><i class="fa-solid ${enRupture ? 'fa-triangle-exclamation' : 'fa-circle-exclamation'}"></i></div>
                         <div class="alert-item-details">
-                            <span class="alert-item-title">${p.nom}</span>
-                            <span class="alert-item-meta">SKU: ${p.codeArticle} | Categorie: ${p.categorie}</span>
+                            <span class="alert-item-title">${p.designation}</span>
+                            <span class="alert-item-meta">SKU: ${p.code} | Categorie: ${p.nomCategorie}</span>
                         </div>
                         <span class="alert-stock-badge">${enRupture ? 'RUPTURE' : p.quantiteStock + ' ' + p.unite}</span>
                     </div>
@@ -333,24 +366,54 @@ function renderDashboardCharts(data) {
         commonSeriesSettings: {
             argumentField: "mois",
             type: "spline",
-            point: { visible: true, size: 8 }
+            point: {
+                visible: true,
+                size: 8
+            }
         },
         series: [
-            { valueField: "ventes", name: "Ventes facturées (TND)", color: "#3b82f6" },
-            { valueField: "encaissements", name: "Règlements encaissés (TND)", color: "#10b981" }
+            {
+                valueField: "ventes",
+                name: "Ventes facturées (TND)",
+                color: "#3b82f6"
+            },
+            {
+                valueField: "encaissements",
+                name: "Règlements encaissés (TND)",
+                color: "#10b981"
+            }
         ],
         argumentAxis: {
-            label: { font: { family: "Inter", color: labelColor } },
-            grid: { visible: true, color: isDark ? "#1e293b" : "#f1f5f9" }
+            label: {
+                font: {
+                    family: "Inter",
+                    color: labelColor
+                }
+            },
+            grid: {
+                visible: true,
+                color: isDark ? "#1e293b" : "#f1f5f9"
+            }
         },
         valueAxis: {
-            label: { font: { family: "Inter", color: labelColor } },
-            grid: { visible: true, color: isDark ? "#1e293b" : "#f1f5f9" }
+            label: {
+                font: {
+                    family: "Inter",
+                    color: labelColor
+                }
+            },
+            grid: {
+                visible: true,
+                color: isDark ? "#1e293b" : "#f1f5f9"
+            }
         },
         legend: {
             verticalAlignment: "top",
             horizontalAlignment: "center",
-            font: { family: "Inter", color: labelColor }
+            font: {
+                family: "Inter",
+                color: labelColor
+            }
         },
         tooltip: {
             enabled: true,
@@ -368,16 +431,22 @@ function renderDashboardCharts(data) {
             valueField: "montant",
             label: {
                 visible: true,
-                connector: { visible: true },
-                format: "percent",
-                font: { family: "Inter" }
+                connector: {
+                    visible: true
+                },
+                customizeText(arg) {
+                    return `${formatCurrency(arg.value)} (${arg.percentText})`;
+                }
             }
         }],
         palette: "Soft Pastel",
         legend: {
             verticalAlignment: "bottom",
             horizontalAlignment: "center",
-            font: { family: "Inter", color: labelColor }
+            font: {
+                family: "Inter",
+                color: labelColor
+            }
         },
         tooltip: {
             enabled: true,
@@ -401,20 +470,62 @@ async function chargerCommandes() {
             columnResizingMode: "widget",
             columnAutoWidth: true,
             showBorders: false,
-            searchPanel: { visible: true, width: 260, placeholder: "Rechercher une commande..." },
-            filterRow: { visible: true },
-            headerFilter: { visible: true },
-            paging: { pageSize: 10 },
-            pager: { showPageSizeSelector: true, allowedPageSizes: [5, 10, 20], showInfo: true },
+            searchPanel: {
+                visible: true,
+                width: 260,
+                placeholder: "Rechercher une commande..."
+            },
+            filterRow: {
+                visible: true
+            },
+            headerFilter: {
+                visible: true
+            },
+            paging: {
+                pageSize: 10
+            },
+            pager: {
+                showPageSizeSelector: true,
+                allowedPageSizes: [5, 10, 20],
+                showInfo: true
+            },
             columns: [
-                { dataField: "numeroCommande", caption: "N° Commande", width: 150, cellTemplate: (container, options) => {
-                    $("<strong>").text(options.value).appendTo(container);
+                {
+                    dataField: "numeroCommande",
+                    caption: "N° Commande",
+                    width: 150,
+                    cellTemplate: (container, options) => {
+                        $("<strong>").text(options.value).appendTo(container);
                 }},
-                { dataField: "nomPartenaire", caption: "Client" },
-                { dataField: "numeroDevis", caption: "N° Devis", width: 130 },
-                { dataField: "dateCommande", caption: "Date", dataType: "date", format: "dd/MM/yyyy", width: 110 },
-                { dataField: "statut", caption: "Statut", width: 120, alignment: "center", cellTemplate: renderStatusBadge },
-                { dataField: "montantTTC", caption: "Montant TTC", format: { type: "currency" }, alignment: "right", width: 140 },
+                {
+                    dataField: "nomPartenaire",
+                    caption: "Client"
+                },
+                {
+                    dataField: "numeroDevis",
+                    caption: "N° Devis",
+                    width: 130
+                },
+                {
+                    dataField: "dateCommande",
+                    caption: "Date",
+                    dataType: "date",
+                    format: "dd/MM/yyyy",
+                    width: 110
+                },
+                {
+                    dataField: "statut",
+                    caption: "Statut",
+                    width: 120,
+                    alignment: "center",
+                    cellTemplate: renderStatusBadge
+                },
+                {
+                    dataField: "montantTTC",
+                    caption: "Montant TTC (TND)",
+                    alignment: "right",
+                    width: 170
+                },
                 {
                     caption: "Actions",
                     alignment: "center",
@@ -435,22 +546,41 @@ function renderStatusBadge(container, options) {
     const val = options.value;
     let badgeClass = 'badge-gray';
     let label = val;
-    
-    if (val === 'Brouillon') badgeClass = 'badge-gray';
-    else if (val === 'Validee') { badgeClass = 'badge-blue'; label = 'Validée'; }
-    else if (val === 'Facturee') { badgeClass = 'badge-orange'; label = 'Facturée'; }
-    else if (val === 'Cloturee') { badgeClass = 'badge-green'; label = 'Clôturée'; }
-    else if (val === 'Annulee') { badgeClass = 'badge-red'; label = 'Annulée'; }
-    else if (val === 'Payee') { badgeClass = 'badge-green'; label = 'Payée'; }
-    else if (val === 'NonPayee') { badgeClass = 'badge-orange'; label = 'Non Payée'; }
-    else if (val === 'EnRetard') { badgeClass = 'badge-red'; label = 'En Retard'; }
-
+    if (val === 'Brouillon')
+        badgeClass = 'badge-gray';
+    else if (val === 'Validee') {
+        badgeClass = 'badge-blue';
+        label = 'Validée';
+    }
+    else if (val === 'Facturee') {
+        badgeClass = 'badge-orange';
+        label = 'Facturée';
+    }
+    else if (val === 'Cloturee') {
+        badgeClass = 'badge-green';
+        label = 'Clôturée';
+    }
+    else if (val === 'Annulee') {
+        badgeClass = 'badge-red';
+        label = 'Annulée';
+    }
+    else if (val === 'Payee') {
+        badgeClass = 'badge-green';
+        label = 'Payée';
+    }
+    else if (val === 'NonPayee') {
+        badgeClass = 'badge-orange';
+        label = 'Non Payée';
+    }
+    else if (val === 'EnRetard') {
+        badgeClass = 'badge-red';
+        label = 'En Retard';
+    }
     $(`<span>`).addClass(`badge ${badgeClass}`).text(label).appendTo(container);
 }
 
 // RENDU ACTIONS DES COMMANDES
 function renderCommandeActions(container, options) {
-
     const c = options.data;
     const $wrapper = $("<div style='display:flex; justify-content:center;'>");
 
@@ -459,7 +589,6 @@ function renderCommandeActions(container, options) {
         .html("<i class='fa-solid fa-eye'></i> Détails")
         .on("click", () => ouvrirDetailCommande(c.id_Commande))
         .appendTo($wrapper);
-
     if (c.statut === 'EnAttente') {
         // Valider
         $("<a>").addClass("action-btn-dx btn-approve")
@@ -483,7 +612,6 @@ function renderCommandeActions(container, options) {
             .on("click", () => annulerCommande(c.id_Commande))
             .appendTo($wrapper);
     }
-
     $wrapper.appendTo(container);
 }
 
@@ -567,11 +695,24 @@ async function ouvrirDetailCommande(id) {
         let badgeClass = 'badge-gray';
         let badgeLabel = c.statut;
         
-        if (c.statut === 'EnAttente') badgeClass = 'badge-gray';
-        else if (c.statut === 'Validee') { badgeClass = 'badge-blue'; badgeLabel = 'Validée'; }
-        else if (c.statut === 'Facturee') { badgeClass = 'badge-orange'; badgeLabel = 'Facturée'; }
-        else if (c.statut === 'Cloturee') { badgeClass = 'badge-green'; badgeLabel = 'Clôturée'; }
-        else if (c.statut === 'Annulee') { badgeClass = 'badge-red'; badgeLabel = 'Annulée'; }
+        if (c.statut === 'EnAttente')
+            badgeClass = 'badge-gray';
+        else if (c.statut === 'Validee') {
+            badgeClass = 'badge-blue';
+            badgeLabel = 'Validée';
+        }
+        else if (c.statut === 'Facturee') {
+            badgeClass = 'badge-orange';
+            badgeLabel = 'Facturée';
+        }
+        else if (c.statut === 'Cloturee') {
+            badgeClass = 'badge-green';
+            badgeLabel = 'Clôturée';
+        }
+        else if (c.statut === 'Annulee') {
+            badgeClass = 'badge-red';
+            badgeLabel = 'Annulée';
+        }
 
         let linesHtml = '';
         c.lignes.forEach(l => {
@@ -586,7 +727,6 @@ async function ouvrirDetailCommande(id) {
                 </div>
             `;
         });
-
         $content.append(`
             <div style="margin-bottom: 20px;">
                 <h4 style="font-size:11px; text-transform:uppercase; color:var(--text-light); margin-bottom:6px; font-weight:700;">Informations Générales</h4>
@@ -594,7 +734,7 @@ async function ouvrirDetailCommande(id) {
                     <div><span style="color:var(--text-muted);">N° Commande:</span> <strong>${c.numeroCommande}</strong></div>
                     <div><span style="color:var(--text-muted);">Statut:</span> <span class="badge ${badgeClass}">${badgeLabel}</span></div>
                     <div><span style="color:var(--text-muted);">Date:</span> <strong>${dateFormatted}</strong></div>
-                    <div><span style="color:var(--text-muted);">Total TTC:</span> <strong class="text-primary">${formatCurrency(c.montantTTC)}</strong></div>
+                    <div><span style="color:var(--text-muted);">Total TTC (TND):</span> <strong class="text-primary">${formatCurrency(c.montantTTC)}</strong></div>
                 </div>
             </div>
 
@@ -617,7 +757,6 @@ async function ouvrirDetailCommande(id) {
             </div>
             ` : ''}
         `);
-
     } catch (err) {
         showToast(err.message, true);
     }
@@ -635,7 +774,10 @@ async function chargerFactures() {
         const totalPaye = facturesData.reduce((sum, f) => sum + (f.montantPaye || 0), 0);
         const totalReste = totalTTC - totalPaye;
         
-        const fmt = (v) => new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(v);
+        const fmt = (v) => new Intl.NumberFormat('fr-FR', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        }).format(v);
         $("#kpi-fact-ca-ht").text(fmt(totalHT));
         $("#kpi-fact-ca-ttc").text(fmt(totalTTC));
         $("#kpi-fact-perdu").text(fmt(totalPaye));
@@ -647,25 +789,75 @@ async function chargerFactures() {
             columnResizingMode: "widget",
             columnAutoWidth: true,
             showBorders: false,
-            searchPanel: { visible: true, width: 260, placeholder: "Rechercher une facture..." },
-            filterRow: { visible: true },
-            headerFilter: { visible: true },
-            paging: { pageSize: 10 },
+            searchPanel: {
+                visible: true,
+                width: 260,
+                placeholder: "Rechercher une facture..."
+            },
+            filterRow: {
+                visible: true
+            },
+            headerFilter: {
+                visible: true
+            },
+            paging: {
+                pageSize: 10
+            },
             columns: [
-                { dataField: "numeroFacture", caption: "N° Facture", width: 140, cellTemplate: (container, options) => {
-                    $("<strong>").text(options.value).appendTo(container);
+                {
+                    dataField: "numeroFacture",
+                    caption: "N° Facture",
+                    width: 140,
+                    cellTemplate: (container, options) => {
+                        $("<strong>").text(options.value).appendTo(container);
                 }},
-                { dataField: "nomPartenaire", caption: "Client" },
-                { dataField: "numeroCommande", caption: "N° Commande", width: 140 },
-                { dataField: "dateFacture", caption: "Date Émission", dataType: "date", format: "dd/MM/yyyy", width: 120 },
-                { dataField: "dateEcheance", caption: "Date Échéance", dataType: "date", format: "dd/MM/yyyy", width: 120 },
-                { dataField: "statut", caption: "Statut", alignment: "center", width: 120, cellTemplate: renderStatusBadge },
-                { dataField: "montantTotal", caption: "Total TTC", format: { type: "currency" }, alignment: "right", width: 130 },
-                { dataField: "montantRestant", caption: "Reste à Payer", alignment: "right", width: 130, cellTemplate: (container, options) => {
-                    const r = options.value || 0;
-                    const $span = $("<span>").text(formatCurrency(r));
-                    if (r > 0) $span.css({ color: "var(--danger)", fontWeight: "700" });
-                    $span.appendTo(container);
+                {
+                    dataField: "nomPartenaire",
+                    caption: "Client"
+                },
+                {
+                    dataField: "numeroCommande",
+                    caption: "N° Commande",
+                    width: 140
+                },
+                {
+                    dataField: "dateFacture",
+                    caption: "Date Émission",
+                    dataType: "date",
+                    format: "dd/MM/yyyy",
+                    width: 150
+                },
+                {
+                    dataField: "dateEcheance",
+                    caption: "Date Échéance",
+                    dataType: "date",
+                    format: "dd/MM/yyyy",
+                    width: 150
+                },
+                {
+                    dataField: "statut",
+                    caption: "Statut",
+                    alignment: "center",
+                    width: 120,
+                    cellTemplate: renderStatusBadge
+                },
+                {
+                    dataField: "montantTotal",
+                    caption: "Total TTC (TND)",
+                    alignment: "right",
+                    width: 150
+                },
+                {
+                    dataField: "montantRestant",
+                    caption: "Reste à Payer (TND)",
+                    alignment: "right",
+                    width: 170,
+                    cellTemplate: (container, options) => {
+                        const r = options.value || 0;
+                        const $span = $("<span>").text(formatCurrency(r));
+                        if (r > 0)
+                            $span.css({ color: "var(--danger)", fontWeight: "700" });
+                        $span.appendTo(container);
                 }},
                 {
                     caption: "Actions",
@@ -738,20 +930,24 @@ function initPopupReglement() {
     });
 }
 
-let activeReglementFactId = 0;
 function ouvrirModalPaiement(id, ref, reste) {
     activeReglementFactId = id;
-    
+
+    $("#popup-reglement").dxPopup("instance").show();
     $("#dx-regle-ref").text(ref);
     $("#dx-regle-reste").text(formatCurrency(reste));
 
     // Initialiser le formulaire
     $("#dx-form-reglement").dxForm({
-        formData: { montant: reste },
+        formData: {
+            montant: reste
+        },
         items: [
             {
                 dataField: "montant",
-                label: { text: "Montant perçu (TND)" },
+                label: {
+                    text: "Montant perçu (TND)"
+                },
                 editorType: "dxNumberBox",
                 editorOptions: {
                     min: 0.001,
@@ -760,21 +956,28 @@ function ouvrirModalPaiement(id, ref, reste) {
                     showClearButton: true
                 },
                 validationRules: [
-                    { type: "required", message: "Le montant est requis." },
-                    { type: "range", min: 0.001, max: reste, message: "Le montant doit être compris entre 0,001 et le reste à payer." }
+                    {
+                        type: "required",
+                        message: "Le montant est requis."
+                    },
+                    {
+                        type: "range",
+                        min: 0.001,
+                        max: reste,
+                        message: "Le montant doit être compris entre 0,001 et le reste à payer."
+                    }
                 ]
             }
         ]
     });
-
-    $("#popup-reglement").dxPopup("instance").show();
 }
 
 async function soumettreReglement() {
     const form = $("#dx-form-reglement").dxForm("instance");
     const validationResult = form.validate();
     
-    if (!validationResult.isValid) return;
+    if (!validationResult.isValid)
+        return;
     
     const formData = form.option("formData");
 
@@ -782,7 +985,9 @@ async function soumettreReglement() {
         const res = await fetch(`/api/factures/${activeReglementFactId}/regler`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ montant: formData.montant })
+            body: JSON.stringify({
+                montant: formData.montant
+            })
         });
 
         if (!res.ok) {
@@ -812,18 +1017,45 @@ async function chargerClients() {
             columnResizingMode: "widget",
             columnAutoWidth: true,
             showBorders: false,
-            searchPanel: { visible: true, width: 260, placeholder: "Rechercher un client..." },
-            filterRow: { visible: true },
-            groupPanel: { visible: true, placeholder: "Faites glisser une colonne pour grouper" },
-            paging: { pageSize: 10 },
+            searchPanel: {
+                visible: true,
+                width: 260,
+                placeholder: "Rechercher un client..."
+            },
+            filterRow: {
+                visible: true
+            },
+            groupPanel: {
+                visible: true,
+                placeholder: "Faites glisser une colonne pour grouper"
+            },
+            paging: {
+                pageSize: 10
+            },
             columns: [
-                { dataField: "entreprise", caption: "Entreprise / Raison Sociale", cellTemplate: (container, options) => {
-                    $("<strong>").text(options.value).appendTo(container);
+                {
+                    dataField: "entreprise",
+                    caption: "Entreprise / Raison Sociale",
+                    cellTemplate: (container, options) => {
+                        $("<strong>").text(options.value).appendTo(container);
                 }},
-                { dataField: "nom", caption: "Nom Contact" },
-                { dataField: "email", caption: "Email" },
-                { dataField: "telephone", caption: "Téléphone", width: 140 },
-                { dataField: "adresse", caption: "Adresse Postale" },
+                {
+                    dataField: "nom",
+                    caption: "Nom Contact"
+                },
+                {
+                    dataField: "email",
+                    caption: "Email"
+                },
+                {
+                    dataField: "telephone",
+                    caption: "Téléphone",
+                    width: 140
+                },
+                {
+                    dataField: "adresse",
+                    caption: "Adresse Postale"
+                },
             ]
         });
     } catch (err) {
@@ -870,14 +1102,63 @@ function initPopupClient() {
         onShowing: () => {
             // Initialiser ou réinitialiser le formulaire
             $("#dx-form-client").dxForm({
-                formData: { nom: "", entreprise: "", email: "", telephone: "", adresse: "", limiteCredit: 15000, actif: true },
+                formData: {
+                    nom: "",
+                    entreprise: "",
+                    email: "",
+                    telephone: "",
+                    adresse: "",
+                },
                 labelLocation: "top",
                 items: [
-                    { dataField: "nom", label: { text: "Nom du Contact Principal" }, validationRules: [{ type: "required", message: "Le nom est requis." }] },
-                    { dataField: "entreprise", label: { text: "Raison Sociale / Entreprise" }, validationRules: [{ type: "required", message: "L'entreprise est requise." }] },
-                    { dataField: "email", label: { text: "Adresse E-mail" }, validationRules: [{ type: "required", message: "L'email est requis." }, { type: "email", message: "Format d'email invalide." }] },
-                    { dataField: "telephone", label: { text: "Téléphone" } },
-                    { dataField: "adresse", label: { text: "Adresse Postale" } },
+                    {
+                        dataField: "nom",
+                        label: {
+                            text: "Nom du Contact Principal"
+                        },
+                        validationRules: [{
+                            type: "required",
+                            message: "Le nom est requis."
+                        }]
+                    },
+                    {
+                        dataField: "entreprise",
+                        label: {
+                            text: "Raison Sociale / Entreprise"
+                        },
+                        validationRules: [
+                            {
+                            type: "required",
+                            message: "L'entreprise est requise."
+                            }]
+                    },
+                    {
+                        dataField: "email",
+                        label: {
+                            text: "Adresse E-mail"
+                        },
+                        validationRules: [
+                            {
+                                type: "required",
+                                message: "L'email est requis."
+                            },
+                            {
+                                type: "email",
+                                message: "Format d'email invalide."
+                            }]
+                    },
+                    {
+                        dataField: "telephone",
+                        label: {
+                            text: "Téléphone"
+                        }
+                    },
+                    {
+                        dataField: "adresse",
+                        label: {
+                            text: "Adresse Postale"
+                        }
+                    },
                 ]
             });
         }
@@ -895,7 +1176,9 @@ async function soumettreClient() {
     try {
         const res = await fetch('/api/clients', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json'
+            },
             body: JSON.stringify(payload)
         });
 
@@ -923,44 +1206,94 @@ async function chargerProduits() {
             columnResizingMode: "widget",
             columnAutoWidth: true,
             showBorders: false,
-            searchPanel: { visible: true, width: 260, placeholder: "Rechercher un article..." },
-            filterRow: { visible: true },
-            headerFilter: { visible: true },
-            paging: { pageSize: 10 },
+            searchPanel: {
+                visible: true,
+                width: 260,
+                placeholder: "Rechercher un article..."
+            },
+            filterRow: {
+                visible: true
+            },
+            headerFilter: {
+                visible: true
+            },
+            paging: {
+                pageSize: 10
+            },
             columns: [
-                { dataField: "code", caption: "Code / SKU", width: 130, cellTemplate: (container, options) => {
-                    $("<strong style='font-family:monospace;'>").text(options.value).appendTo(container);
+                {
+                    dataField: "code",
+                    caption: "Code / SKU",
+                    width: 130,
+                    cellTemplate: (container, options) => {
+                        $("<strong style='font-family:monospace;'>").text(options.value).appendTo(container);
                 }},
-                { dataField: "designation", caption: "D\u00e9signation" },
-                { dataField: "nomCategorie", caption: "Cat\u00e9gorie", width: 150 },
-                { dataField: "unite", caption: "Unit\u00e9", width: 80, alignment: "center" },
-                { dataField: "prixUniversitaire", caption: "Prix Unit. HT", format: { type: "currency" }, alignment: "right", width: 130 },
-                { dataField: "tauxTVA", caption: "TVA (%)", alignment: "center", width: 80 },
-                { dataField: "quantiteStock", caption: "Stock", alignment: "center", width: 180, cellTemplate: renderStockProgressBar },
-                { dataField: "actif", caption: "Actif", dataType: "boolean", width: 80, alignment: "center", cellTemplate: (container, options) => {
-                    $("<div>").dxSwitch({
-
-                        value: options.value,
-
-                        onValueChanged: async function (e) {
-
-                            await fetch(`/api/produits/${options.data.id_Produit}/statut`, {
-
-                                method: "PUT",
-
-                                headers: {
-                                    "Content-Type": "application/json"
-                                },
-
-                                body: JSON.stringify({
-                                    actif: e.value
-                                })
-
-                            });
-
-                            showToast("Statut modifié");
+                {
+                    dataField: "designation",
+                    caption: "D\u00e9signation"
+                },
+                {
+                    dataField: "nomCategorie",
+                    caption: "Cat\u00e9gorie",
+                    width: 150
+                },
+                {
+                    dataField: "unite",
+                    caption: "Unit\u00e9",
+                    width: 100,
+                    alignment: "center"
+                },
+                {
+                    dataField: "prixUniversitaire",
+                    caption: "Prix Unit. HT (TND)",
+                    alignment: "right",
+                    width: 170
+                },
+                {
+                    dataField: "tauxTVA",
+                    caption: "TVA (%)",
+                    alignment: "center",
+                    width: 100
+                },
+                {
+                    dataField: "quantiteStock",
+                    caption: "Stock",
+                    alignment: "center",
+                    width: 180,
+                    cellTemplate: renderStockProgressBar
+                },
+                {
+                    caption: "Actions",
+                    width: 120,
+                    alignment: "center",
+                    cellTemplate: (container, options) => {
+                        $("<div>").dxButton({
+                            icon: "plus",
+                            text: "Stock",
+                            type: "success",
+                            onClick: () => ouvrirPopupAjoutStock(options.data)
+                        }).appendTo(container);
+                    }
+                },
+                {
+                    dataField: "actif",
+                    caption: "Actif",
+                    dataType: "boolean",
+                    width: 100,
+                    alignment: "center",
+                    cellTemplate: (container, options) => {
+                        $("<div>").dxSwitch({
+                            value: options.value,
+                            onValueChanged: async function (e) {
+                                await fetch(`/api/produits/${options.data.id_Produit}/Actif`, {
+                                    method: "PUT",
+                                    headers: {
+                                        "Content-Type": "application/json"
+                                    },
+                                    body: JSON.stringify(e.value)
+                                });
+                                showToast("Statut modifié");
                         }
-
                     }).appendTo(container);
                 }}
             ]
@@ -971,6 +1304,50 @@ async function chargerProduits() {
     }
 }
 
+function ouvrirPopupAjoutStock(produit) {
+    produitSelectionne = produit;
+    $("#popup-ajout-stock").dxPopup("instance").show();
+    $("#form-ajout-stock").dxForm({
+        formData: {
+            quantite: 1
+        },
+        items: [{
+            dataField: "quantite",
+            label: {
+                text: "Quantité à ajouter"
+            },
+            editorType: "dxNumberBox",
+            editorOptions: {
+                min: 1
+            },
+            validationRules: [{
+                type: "required"
+            }]
+        }]
+    });
+}
+
+async function ajouterStock() {
+    const form = $("#form-ajout-stock").dxForm("instance");
+    if (!form.validate().isValid)
+        return;
+    const qte = form.option("formData").quantite;
+    const res = await fetch(`/api/produits/${produitSelectionne.id_Produit}/stock`, {
+        method: "PUT",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(qte)
+    });
+    if (!res.ok) {
+        showToast("Erreur lors de l'ajout du stock", true);
+        return;
+    }
+    showToast("Stock mis à jour");
+    $("#popup-ajout-stock").dxPopup("instance").hide();
+    chargerProduits();
+}
+
 // RENDU CELLULE JAUGE DE STOCK
 function renderStockProgressBar(container, options) {
     const p = options.data;
@@ -978,13 +1355,13 @@ function renderStockProgressBar(container, options) {
     const seuil = p.seuilAlerte;
     const sousAlerte = stock <= seuil;
     const enRupture = stock === 0;
-    
     let stockFillClass = '';
-    if (enRupture) stockFillClass = 'danger';
-    else if (sousAlerte) stockFillClass = 'warning';
+    if (enRupture)
+        stockFillClass = 'danger';
+    else if (sousAlerte)
+        stockFillClass = 'warning';
     
     const pct = Math.min((stock / 50) * 100, 100);
-    
     const $wrapper = $("<div style='display:flex; flex-direction:column; gap:4px; width:100%;'>");
     $wrapper.append(`
         <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:600;">
@@ -999,15 +1376,69 @@ function renderStockProgressBar(container, options) {
 }
 
 // CHARGER CATEGORIES
-let categoriesData = [];
 async function chargerCategories() {
     const res = await fetch('/api/categories');
-
     if (!res.ok) {
         throw new Error("Impossible de charger les catégories.");
     }
-
     categoriesData = await res.json();
+}
+
+function initPopupCategorie() {
+    $("#popup-categorie").dxPopup({
+        title: "Nouvelle catégorie",
+        width: 400,
+        height: "auto",
+        visible: false,
+        contentTemplate: container => {
+            $("<div id='form-categorie'>").appendTo(container);
+        },
+        toolbarItems: [
+            {
+                widget: "dxButton",
+                location: "after",
+                toolbar: "bottom",
+                options: {
+                    text: "Créer",
+                    type: "success",
+                    onClick: creerCategorie
+                }
+            },
+            {
+                widget: "dxButton",
+                location: "after",
+                toolbar: "bottom",
+                options: {
+                    text: "Annuler",
+                    onClick: () =>
+                        $("#popup-categorie").dxPopup("instance").hide()
+                }
+            }
+        ],
+        onShowing() {
+            $("#form-categorie").dxForm({
+                formData: {
+                    nom: "",
+                    description: ""
+                },
+                labelLocation: "top",
+                items: [
+                    {
+                        dataField: "nom",
+                        validationRules: [
+                            {
+                                type: "required"
+                            }
+                        ]
+                    },
+                    {
+                        dataField: "description",
+                        editorType: "dxTextArea"
+                    }
+                ]
+            });
+        }
+    });
 }
 
 // CREER ARTICLE (POPUP DX)
@@ -1030,8 +1461,7 @@ function initPopupArticle() {
                 widget: "dxButton",
                 options: {
                     text: "Créer l'Article",
-                    type: "default",
-                    onClick: () => soumettreArticle()
+                    type: "default", onClick: () => soumettreArticle()
                 }
             },
             {
@@ -1040,15 +1470,13 @@ function initPopupArticle() {
                 toolbar: "bottom",
                 widget: "dxButton",
                 options: {
-                    text: "Annuler",
+                    text: "Annuler", 
                     onClick: () => $("#popup-article").dxPopup("instance").hide()
                 }
             }
         ],
         onShowing: async () => {
-
             await chargerCategories();
-
             $("#dx-form-article").dxForm({
                 formData: {
                     Code: "",
@@ -1061,117 +1489,158 @@ function initPopupArticle() {
                     TauxTVA: 19,
                     Actif: 1
                 },
-
                 labelLocation: "top",
-
                 items: [
                     {
                         dataField: "Code",
-                        label: { text: "Code Unique (SKU)" },
-                        validationRules: [
-                            {
-                                type: "required",
-                                message: "Le code SKU est requis."
-                            }
-                        ]
+                        label: {
+                            text: "Code Unique (SKU)"
+                        },
+                        validationRules: [{
+                            type: "required",
+                            message: "Le code SKU est requis."
+                        }]
                     },
-
                     {
                         dataField: "Designation",
-                        label: { text: "Nom de l'Article" },
-                        validationRules: [
+                        label: {
+                            text: "Nom de l'Article"
+                        },
+                        validationRules: [{
+                            type: "required",
+                            message: "La désignation est requise."
+                        }]
+                    },
+                    {
+                        itemType: "group",
+                        colCount: 2,
+                        items: [
                             {
-                                type: "required",
-                                message: "La désignation est requise."
+                                dataField: "id_Categorie",
+                                colSpan: 1,
+                                label: {
+                                    text: "Catégorie"
+                                },
+                                editorType: "dxSelectBox",
+                                editorOptions: {
+                                    dataSource: categoriesData,
+                                    displayExpr: "nom",
+                                    valueExpr: "id_Categorie",
+                                    searchEnabled: true,
+                                    placeholder: "Sélectionner une catégorie"
+                                }
+                            },
+                            {
+                                itemType: "button",
+                                horizontalAlignment: "left",
+                                buttonOptions: {
+                                    icon: "plus",
+                                    text: "Nouvelle",
+                                    type: "default",
+                                    onClick: () => $("#popup-categorie").dxPopup("instance").show()
+                                }
                             }
                         ]
                     },
-
-                    {
-                        dataField: "id_Categorie",
-                        label: { text: "Catégorie" },
-                        editorType: "dxSelectBox",
-                        editorOptions: {
-                            dataSource: categoriesData,
-
-                            displayExpr: "nom",
-
-                            valueExpr: "id_Categorie",
-
-                            searchEnabled: true,
-
-                            placeholder: "Sélectionner une catégorie"
-                        }
-                    },
-
                     {
                         dataField: "prixUniversitaire",
-                        label: { text: "Prix Unitaire HT (TND)" },
+                        label: {
+                            text: "Prix Unitaire HT (TND)"
+                        },
                         editorType: "dxNumberBox",
                         editorOptions: {
                             min: 0.01,
                             format: "#,###0.000 TND"
                         }
                     },
-
                     {
                         dataField: "QuantiteStock",
-                        label: { text: "Stock Initial" },
+                        label: {
+                            text: "Stock Initial"
+                        },
                         editorType: "dxNumberBox",
-                        editorOptions: { min: 0 }
+                        editorOptions: {
+                            min: 0
+                        }
                     },
-
                     {
                         dataField: "TauxTVA",
-                        label: { text: "TVA (%)" },
+                        label: {
+                            text: "TVA (%)"
+                        },
                         editorType: "dxNumberBox",
                         editorOptions: {
                             min: 0.1,
                             format: "00.0%"
                         }
                     },
-
                     {
                         dataField: "Unite",
-                        label: { text: "Unité de vente (cm, kg, etc...)" }
-                    },
-
-                    {
-                        dataField: "seuilAlerte",
-                        label: { text: "Seuil d'alerte stock" },
-                        editorType: "dxNumberBox",
-                        editorOptions: { min: 0 }
+                        label: {
+                            text: "Unité de vente (cm, kg, etc...)"
+                        }
                     },
                 ]
             });
-
         }
     });
+}
+
+async function creerCategorie() {
+    const form = $("#form-categorie").dxForm("instance");
+    if (!form.validate().isValid)
+        return;
+    const data = form.option("formData");
+    const response = await fetch("/api/categories", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(data)
+    });
+
+    if (!response.ok) {
+        showToast("Erreur lors de la création.", true);
+        return;
+    }
+    const nouvelleCategorie = await response.json();
+    await chargerCategories();
+    $("#popup-categorie").dxPopup("instance").hide();
+    showToast("Catégorie créée.");
+
+    // Refresh the dropdown
+    const articleForm = $("#dx-form-article").dxForm("instance");
+
+    const editor = articleForm.getEditor("id_Categorie");
+    editor.option("dataSource", categoriesData);
+
+    // Automatically select the new category
+    editor.option("value", nouvelleCategorie.id_Categorie);
 }
 
 async function soumettreArticle() {
     const form = $("#dx-form-article").dxForm("instance");
     const result = form.validate();
     
-    if (!result.isValid) return;
+    if (!result.isValid)
+        return;
     
     const payload = form.option("formData");
 
     try {
         const res = await fetch('/api/produits', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json'
+            },
             body: JSON.stringify(payload)
         });
-
         if (!res.ok) {
             const err = await res.json();
             throw new Error(err.message || "Erreur de création de l'article.");
         }
-        
         showToast("Article créé avec succès !");
         $("#popup-article").dxPopup("instance").hide();
-        
         chargerToutesLesDonnees();
         if (activeTab === 'articles') chargerProduits();
     } catch (err) {
@@ -1183,7 +1652,8 @@ async function soumettreCommande() {
     const headerForm = $("#dx-form-commande-header").dxForm("instance");
     const headerValidation = headerForm.validate();
     
-    if (!headerValidation.isValid) return;
+    if (!headerValidation.isValid)
+        return;
 
     const grid = $("#dx-grid-commande-lines").dxDataGrid("instance");
     
@@ -1224,7 +1694,9 @@ async function soumettreCommande() {
     try {
         const res = await fetch('/api/commandes', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json'
+            },
             body: JSON.stringify(payload)
         });
 
@@ -1270,21 +1742,70 @@ async function chargerDevis() {
             columnAutoWidth: true,
             allowColumnReordering: true,
             showBorders: false,
-            searchPanel: { visible: true, width: 260, placeholder: "Rechercher un devis..." },
-            filterRow: { visible: true },
-            headerFilter: { visible: true },
-            paging: { pageSize: 10 },
-            pager: { showPageSizeSelector: true, allowedPageSizes: [5, 10, 20], showInfo: true },
+            searchPanel: {
+                visible: true,
+                width: 260,
+                placeholder: "Rechercher un devis..."
+            },
+            filterRow: {
+                visible: true
+            },
+            headerFilter: {
+                visible: true
+            },
+            paging: {
+                pageSize: 10
+            },
+            pager: {
+                showPageSizeSelector: true,
+                allowedPageSizes: [5, 10, 20],
+                showInfo: true
+            },
             columns: [
-                { dataField: "numeroDevis", caption: "N° Devis", width: 150, cellTemplate: (container, options) => {
-                    $("<strong>").text(options.value).appendTo(container); 
-                }},
-                { dataField: "nomPartenaire", caption: "Client" },
-                { dataField: "dateDevis", caption: "Date", dataType: "date", format: "dd/MM/yyyy", width: 110 },
-                { dataField: "dateValidite", caption: "Validité", dataType: "date", format: "dd/MM/yyyy", width: 110 },
-                { dataField: "statut", caption: "Statut", width: 120, alignment: "center", cellTemplate: renderDevisBadge },
-                { dataField: "montantHT", caption: "Montant HT", format: { type: "currency" }, alignment: "right", width: 130 },
-                { dataField: "montantTTC", caption: "Total TTC", format: { type: "currency" }, alignment: "right", width: 130 },
+                {
+                    dataField: "numeroDevis",
+                    caption: "N° Devis",
+                    width: 150,
+                    cellTemplate: (container, options) => {
+                        $("<strong>").text(options.value).appendTo(container); 
+                    }},
+                {
+                    dataField: "nomPartenaire",
+                    caption: "Client"
+                },
+                {
+                    dataField: "dateDevis",
+                    caption: "Date",
+                    dataType: "date",
+                    format: "dd/MM/yyyy",
+                    width: 110
+                },
+                {
+                    dataField: "dateValidite",
+                    caption: "Validité",
+                    dataType: "date",
+                    format: "dd/MM/yyyy",
+                    width: 110
+                },
+                {
+                    dataField: "statut",
+                    caption: "Statut",
+                    width: 120,
+                    alignment: "center",
+                    cellTemplate: renderDevisBadge
+                },
+                {
+                    dataField: "montantHT",
+                    caption: "Montant HT (TND)",
+                    alignment: "right",
+                    width: 170
+                },
+                {
+                    dataField: "montantTTC",
+                    caption: "Total TTC (TND)",
+                    alignment: "right",
+                    width: 170
+                },
                 {
                     caption: "Actions",
                     alignment: "center",
@@ -1343,32 +1864,47 @@ async function envoyerDevis(id) {
     if (!confirm("Envoyer ce devis au client ? Son statut passera à 'Envoyé'.")) return;
     try {
         const res = await fetch(`/api/devis/${id}/valider`, { method: 'POST' });
-        if (!res.ok) { const e = await res.json(); throw new Error(e.message); }
+        if (!res.ok) {
+            const e = await res.json();
+            throw new Error(e.message);
+        }
         showToast("Devis envoyé avec succès !");
         chargerDevis();
-    } catch (err) { showToast(err.message, true); }
+    } catch (err) {
+        showToast(err.message, true);
+    }
 }
 
 async function refuserDevis(id) {
     if (!confirm("Refuser / annuler ce devis ?")) return;
     try {
         const res = await fetch(`/api/devis/${id}/annuler`, { method: 'POST' });
-        if (!res.ok) { const e = await res.json(); throw new Error(e.message); }
+        if (!res.ok) {
+            const e = await res.json();
+            throw new Error(e.message);
+        }
         showToast("Devis refusé.");
         chargerDevis();
-    } catch (err) { showToast(err.message, true); }
+    } catch (err) {
+        showToast(err.message, true);
+    }
 }
 
 async function accepterDevis(id) {
     if (!confirm("Accepter ce devis et créer automatiquement un bon de commande ?")) return;
     try {
         const res = await fetch(`/api/devis/${id}/accepter`, { method: 'POST' });
-        if (!res.ok) { const e = await res.json(); throw new Error(e.message); }
+        if (!res.ok) {
+            const e = await res.json();
+            throw new Error(e.message);
+        }
         const cmd = await res.json();
         showToast(`Devis accepté ! Commande ${cmd.numeroCommande} créée.`);
         chargerDevis();
         chargerToutesLesDonnees();
-    } catch (err) { showToast(err.message, true); }
+    } catch (err) {
+        showToast(err.message, true);
+    }
 }
 
 // --- POPUP CREATION DEVIS ---
@@ -1393,31 +1929,42 @@ function initPopupDevis() {
                 </div>
                 <div style="margin-top:15px; margin-left:auto; width:260px; padding:10px; background:var(--bg-app); border:1px solid var(--border); border-radius:6px; font-size:12.5px;">
                     <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
-                        <span>Total HT :</span><span id="devis-summary-ht">0,000 TND</span>
+                        <span>Total HT (TND):</span><span id="devis-summary-ht">0,000 TND</span>
                     </div>
                     <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
-                        <span>TVA (%) :</span><span id="devis-summary-tva">0,000 TND</span>
+                        <span>TVA :</span><span id="devis-summary-tva">0,000 TND</span>
                     </div>
                     <div style="display:flex; justify-content:space-between; font-weight:700; border-top:1px solid var(--border); padding-top:4px; color:var(--navy); font-size:13.5px;">
-                        <span>Total TTC :</span><span id="devis-summary-ttc">0,000 TND</span>
+                        <span>Total TTC (TND):</span><span id="devis-summary-ttc">0,000 TND</span>
                     </div>
                 </div>
             `);
         },
         toolbarItems: [
             {
-                shortcut: "done", location: "after", toolbar: "bottom", widget: "dxButton",
-                options: { text: "Créer Devis (Brouillon)", type: "default", onClick: () => soumettreDevis() }
+                shortcut: "done",
+                location: "after",
+                toolbar: "bottom",
+                widget: "dxButton",
+                options: {
+                    text: "Créer Devis (Brouillon)",
+                    type: "default",
+                    onClick: () => soumettreDevis()
+                }
             },
             {
-                shortcut: "cancel", location: "after", toolbar: "bottom", widget: "dxButton",
-                options: { text: "Annuler", onClick: () => $("#popup-devis").dxPopup("instance").hide() }
+                shortcut: "cancel",
+                location: "after",
+                toolbar: "bottom",
+                widget: "dxButton",
+                options: {
+                    text: "Annuler",
+                    onClick: () => $("#popup-devis").dxPopup("instance").hide()
+                }
             }
         ]
     });
 }
-
-let internalDevisLines = [];
 function ouvrirNouveauDevisPopup() {
     internalDevisLines = [];
     $("#devis-summary-ht").text("0,000 TND");
@@ -1433,7 +1980,9 @@ function ouvrirNouveauDevisPopup() {
         colCount: 1,
         items: [{
             dataField: "clientId",
-            label: { text: "Client" },
+            label: {
+                text: "Client"
+            },
             editorType: "dxSelectBox",
             editorOptions: {
                 dataSource: clientsData,
@@ -1442,7 +1991,10 @@ function ouvrirNouveauDevisPopup() {
                 searchEnabled: true,
                 placeholder: "-- Sélectionner le client --"
             },
-            validationRules: [{ type: "required", message: "Le client est obligatoire." }]
+            validationRules: [{
+                type: "required",
+                message: "Le client est obligatoire."
+            }]
         }]
     });
 
@@ -1452,41 +2004,88 @@ function ouvrirNouveauDevisPopup() {
         allowColumnResizing: true,
         columnResizingMode: "widget",
         columnAutoWidth: true,
-        editing: { mode: "cell", allowAdding: true, allowUpdating: true, allowDeleting: true, newRowPosition: "last" },
+        editing: {
+            mode: "cell",
+            allowAdding: true,
+            allowUpdating: true,
+            allowDeleting: true,
+            newRowPosition: "last"
+        },
         showBorders: true,
         height: 200,
-        scrolling: { mode: "virtual" },
+        scrolling: {
+            mode: "virtual"
+        },
         columns: [
             {
-                dataField: "produitId", caption: "Article / Produit",
+                dataField: "produitId",
+                caption: "Article / Produit",
                 lookup: {
-                    dataSource: produitsData,
+                    dataSource: produitsData.filter(p =>
+                        p.actif === true &&
+                        p.quantiteStock > 0
+                    ),
                     valueExpr: "id_Produit",
-                    displayExpr: (item) => item ? `${item.designation} (${item.code})` : ""
+                    displayExpr: item =>
+                        item ? `${item.designation} (${item.code})` : ""
                 },
-                validationRules: [{ type: "required" }],
+                validationRules: [{
+                    type: "required"
+                }],
                 setCellValue: (rowData, value) => {
                     rowData.produitId = value;
                     const prod = produitsData.find(p => p.id_Produit === value);
                     if (prod) {
                         rowData.prixUniversitaire = prod.prixUniversitaire;
-                        rowData.tauxTVA = prod.tauxTVA || 20;
+                        rowData.TauxTVA = prod.TauxTVA || 19;
                         rowData.quantite = 1;
                         rowData.remise = 0;
                     }
                 }
             },
-            { dataField: "prixUniversitaire", caption: "Prix Unit. HT", dataType: "number", format: { type: "currency" }, allowEditing: false, width: 120, alignment: "right" },
-            { dataField: "quantite", caption: "Qté", dataType: "number", width: 70, alignment: "center", editorOptions: { min: 1 }, validationRules: [{ type: "required" }] },
-            { dataField: "remise", caption: "Remise (%)", dataType: "number", width: 90, alignment: "center", editorOptions: { min: 0, max: 100 } },
-            { dataField: "tauxTVA", caption: "TVA (%)", dataType: "number", width: 80, alignment: "center" },
             {
-                caption: "Total HT", dataType: "number", format: { type: "currency" },
-                allowEditing: false, alignment: "right", width: 120,
+                dataField: "prixUniversitaire",
+                caption: "Prix Unit. HT (TND)",
+                dataType: "number",
+                allowEditing: true,
+                width: 120,
+                alignment: "right"
+            },
+            {
+                dataField: "quantite",
+                caption: "Qté",
+                dataType: "number",
+                width: 70,
+                alignment: "center",
+                editorOptions: { min: 1 },
+                validationRules: [{ type: "required" }]
+            },
+            {
+                dataField: "remise",
+                caption: "Remise (%)",
+                width: 90,
+                alignment: "center",
+                editorOptions: {
+                    min: 0,
+                    max: 100
+                }
+            },
+            {
+                dataField: "TauxTVA",
+                caption: "TVA (%)",
+                width: 80,
+                alignment: "center"
+            },
+            {
+                caption: "Total HT",
+                dataType: "number",
+                allowEditing: false,
+                alignment: "right",
+                width: 120,
                 calculateCellValue: (row) => {
                     if (!row.prixUniversitaire) return 0;
                     return (row.prixUniversitaire - (row.prixUniversitaire * ((row.remise || 0) / 100))) * (row.quantite || 1);
-                }
+                }   
             }
         ],
         onRowInserted: () => recalculerTotauxDevisPopup(),

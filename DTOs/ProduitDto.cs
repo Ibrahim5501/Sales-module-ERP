@@ -13,8 +13,6 @@ namespace example2.DTOs
 
         public decimal QuantiteStock { get; set; }
 
-        public bool Actif { get; set; }
-
         public int Id_Categorie { get; set; }
 
     }

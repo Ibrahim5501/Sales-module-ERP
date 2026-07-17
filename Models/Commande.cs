@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace example2.Models
 {
@@ -27,10 +28,12 @@ namespace example2.Models
 
         public Devis? Devis { get; set; }
 
+        [JsonIgnore]
         public Partenaire? Partenaire { get; set; }
 
         public ICollection<CommandeLigne> Lignes { get; set; } = new List<CommandeLigne>();
 
+        [JsonIgnore]
         public Facture? Facture { get; set; }
     }
 

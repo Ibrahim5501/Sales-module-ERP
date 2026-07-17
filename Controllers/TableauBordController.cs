@@ -28,9 +28,18 @@ namespace example2.Controllers
             var data = new DonniesTableauBord();
 
             var facturesValides = await _context.Factures.Where(f => f.Statut != FactureStatut.Annulee).ToListAsync();
-            var allCommandes = await _context.Commandes.Include(c => c.Lignes).ToListAsync();
+            var allCommandes = await _context.Commandes
+                .Include(c => c.Lignes)
+                    .ThenInclude(l => l.Produit)
+                        .ThenInclude(p => p.Categorie)
+                .ToListAsync();
             var allPartenaires = await _context.Partenaires.ToListAsync();
             var allProduits = await _context.Produits.ToListAsync();
+            var categories = await _context.Produits
+                .Where(p => p.Categorie != null)
+                .Select(p => p.Categorie.Nom)
+                .Distinct()
+                .ToListAsync();
 
             // 1. Indicateurs clés
             data.Indicateurs.ChiffreAffairesTotal = facturesValides.Sum(f => f.MontantTotal);
@@ -57,23 +66,13 @@ namespace example2.Controllers
                 .SelectMany(c => c.Lignes)
                 .ToList();
 
-            var ventesMapCat = new Dictionary<string, decimal>();
-            foreach (var ligne in lignesVentesValides)
-            {
-                if (ligne.Produit != null)
-                {
-                    string cat = ligne.Produit.Categorie?.Nom ?? "Inconnu";
-
-                    if (ventesMapCat.ContainsKey(cat))
-                    {
-                        ventesMapCat[cat] += ligne.MontantTTC;
-                    }
-                    else
-                    {
-                        ventesMapCat[cat] = ligne.MontantTTC;
-                    }
-                }
-            }
+            var ventesMapCat = lignesVentesValides
+                .Where(l => l.Produit?.Categorie != null)
+                .GroupBy(l => l.Produit.Categorie.Nom)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.Sum(l => l.MontantTTC)
+                );
 
             decimal totalVentesCat = ventesMapCat.Values.Sum();
             foreach (var kv in ventesMapCat)

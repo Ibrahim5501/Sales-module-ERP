@@ -37,7 +37,7 @@
                 <h2>DIGI<span>ERP</span></h2>
                 <p>Système de gestion commerciale sécurisé</p>
             </div>
-            
+
             <form id="login-form">
                 <div class="input-group">
                     <label for="login-email"><i class="fa-regular fa-envelope"></i> Adresse Email</label>
@@ -47,16 +47,16 @@
                     <label for="login-password"><i class="fa-solid fa-lock"></i> Mot de passe</label>
                     <input type="password" id="login-password" required placeholder="••••••••">
                 </div>
-                
+
                 <div class="error-msg" id="login-error" style="display: none;">
                     <i class="fa-solid fa-circle-exclamation"></i> <span>Identifiants invalides</span>
                 </div>
-                
+
                 <button type="submit" class="btn btn-login" id="btn-login-submit">
                     <span>Se connecter</span> <i class="fa-solid fa-arrow-right-to-bracket"></i>
                 </button>
             </form>
-            
+
             <div class="login-footer">
                 <p>&copy; 2026 DIGI ERP. Tous droits réservés.</p>
             </div>
@@ -102,20 +102,6 @@
 
             <!-- Actions droite -->
             <div class="topnav-actions">
-                <div class="company-filter">
-                    <i class="fa-solid fa-building"></i>
-                    <span class="company-name">Filtrer par société...</span>
-                    <i class="fa-solid fa-chevron-down"></i>
-                </div>
-                <div class="topnav-notifications">
-                    <button class="topnav-icon-btn" id="theme-btn" title="Changer de thème">
-                        <i class="fa-solid fa-moon"></i>
-                    </button>
-                    <div class="topnav-icon-btn notif-bell">
-                        <i class="fa-solid fa-bell"></i>
-                        <span class="notif-count" id="stock-alert-badge">0</span>
-                    </div>
-                </div>
                 <div class="user-chip">
                     <div class="user-chip-avatar"><i class="fa-solid fa-user"></i></div>
                     <span class="user-name">Administrateur</span>
@@ -265,7 +251,7 @@
                             </div>
                         </div>
                         <div class="kpi-card kpi-card-flat">
-                            <div class="kpi-icon-wrap impayes"><i class="fa-solid fa-euro-sign"></i></div>
+                            <div class="kpi-icon-wrap impayes"><i class="fa-solid fa-money-bill"></i></div>
                             <div class="kpi-body">
                                 <div class="kpi-label">MONTANT TOTAL</div>
                                 <div class="kpi-value" id="kpi-devis-montant">0</div>
@@ -286,10 +272,6 @@
                         <div class="page-header-left">
                             <h1>Factures de Vente</h1>
                             <p>Gestion et suivi des factures clients</p>
-                        </div>
-                        <div class="page-header-right">
-                            <button class="btn-outline-sm">Entreprise</button>
-                            <button class="btn-outline-sm">Pilotage financier</button>
                         </div>
                     </div>
 
@@ -395,6 +377,8 @@
     <div id="popup-devis"></div>
     <div id="popup-reglement"></div>
     <div id="popup-detail-commande"></div>
+    <div id="popup-ajout-stock"></div>
+    <div id="popup-categorie"></div>
 
     <!-- Notification Toast -->
     <div id="dx-toast"></div>
