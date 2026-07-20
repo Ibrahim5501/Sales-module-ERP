@@ -29,6 +29,7 @@ namespace example2.Controllers
         {
             var list = await _context.Devis
                 .Include(d => d.Lignes)
+                    .ThenInclude(l => l.Produit)
                 .Include(d => d.Partenaire)
                 .OrderByDescending(d => d.DateDevis)
                 .ToListAsync();
@@ -41,6 +42,7 @@ namespace example2.Controllers
         {
             var devis = await _context.Devis
                 .Include(d => d.Lignes)
+                    .ThenInclude(l => l.Produit)
                 .Include(d => d.Partenaire)
                 .FirstOrDefaultAsync(d => d.Id_Devis == id);
 
@@ -99,6 +101,12 @@ namespace example2.Controllers
             await _context.SaveChangesAsync();
             devis.Partenaire = await _context.Partenaires.FirstOrDefaultAsync(p => p.Id_Partenaire == devis.Id_Partenaire);
 
+            devis = await _context.Devis
+                .Include(d => d.Partenaire)
+                .Include(d => d.Lignes)
+                    .ThenInclude(l => l.Produit)
+                .FirstAsync(d => d.Id_Devis == devis.Id_Devis);
+
             return CreatedAtAction(nameof(GetById), new { id = devis.Id_Devis }, MapToDto(devis));
         }
 
@@ -110,6 +118,7 @@ namespace example2.Controllers
 
             var existing = await _context.Devis
                 .Include(d => d.Lignes)
+                    .ThenInclude(l => l.Produit)
                 .FirstOrDefaultAsync(d => d.Id_Devis == id);
 
             if (existing == null)
@@ -160,6 +169,7 @@ namespace example2.Controllers
         {
             var devis = await _context.Devis
                 .Include(d => d.Lignes)
+                    .ThenInclude(l => l.Produit)
                 .FirstOrDefaultAsync(d => d.Id_Devis == id);
 
             if (devis == null)
@@ -181,6 +191,7 @@ namespace example2.Controllers
         {
             var devis = await _context.Devis
                 .Include(d => d.Lignes)
+                    .ThenInclude(l => l.Produit)
                 .Include(d => d.Partenaire)
                 .FirstOrDefaultAsync(d => d.Id_Devis == id);
 
@@ -202,6 +213,7 @@ namespace example2.Controllers
         {
             var devis = await _context.Devis
                 .Include(d => d.Lignes)
+                    .ThenInclude(l => l.Produit)
                 .Include(d => d.Partenaire)
                 .FirstOrDefaultAsync(d => d.Id_Devis == id);
 
@@ -223,12 +235,13 @@ namespace example2.Controllers
         {
             var devis = await _context.Devis
                 .Include(d => d.Lignes)
+                    .ThenInclude(l => l.Produit)
                 .FirstOrDefaultAsync(d => d.Id_Devis == id);
 
             if (devis == null)
                 return NotFound(new { message = "Devis non trouvé." });
 
-            if (devis.Statut != DevisStatut.Envoye)
+            if (devis.Statut != DevisStatut.Envoye && devis.Statut != DevisStatut.Brouillon)
                 return BadRequest(new { message = "Le devis doit être envoyé/validé avant d'être accepté." });
 
             devis.Statut = DevisStatut.Accepte;
@@ -314,7 +327,8 @@ namespace example2.Controllers
                     Remise = l.Remise,
                     MontantHT = l.MontantHT,
                     MontantTTC = l.MontantTTC,
-                    Id_Produit = l.Id_Produit
+                    Id_Produit = l.Id_Produit,
+                    Designation = l.Produit.Designation ?? "Produit",
                 }).ToList()
             };
         }

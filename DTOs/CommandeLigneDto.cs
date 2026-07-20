@@ -24,6 +24,7 @@ namespace example2.DTOs
 
         public int Id_Produit { get; set; }
 
+
     }
 
     public class CommandeLigneUpdateDto : CommandeLigneCreateDto

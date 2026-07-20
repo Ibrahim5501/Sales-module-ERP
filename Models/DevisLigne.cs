@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace example2.Models
 {
@@ -24,6 +25,7 @@ namespace example2.Models
         // Navigation
         public int Id_Devis { get; set; }
 
+        [JsonIgnore]
         public Devis? Devis { get; set; }
 
         public int Id_Produit { get; set; }

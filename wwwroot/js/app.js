@@ -124,6 +124,7 @@ $(document).ready(() => {
     initPopupReglement();
     initPopupDetailCommande();
     initPopupDevis();
+    initPopupDetailDevis();
     initPopupCategorie();
 
     // Lier les boutons d'ouverture aux Popups DevExtreme
@@ -281,7 +282,6 @@ async function chargerDashboard() {
         // Mettre à jour les KPI
         $("#kpi-ca").text(formatCurrency(data.indicateurs.chiffreAffairesTotal));
         $("#kpi-commandes").text(data.indicateurs.nombreCommandes);
-        $("#kpi-clients").text(data.indicateurs.clientsActifs);
         $("#kpi-impayes").text(formatCurrency(data.indicateurs.montantImpaye));
         $("#kpi-taux-recouvrement").text(`Recouvrement : ${data.indicateurs.tauxRecouvrement}%`);
         
@@ -679,6 +679,26 @@ function initPopupDetailCommande() {
     });
 }
 
+async function validerCommandeDepuisPopup(id) {
+    await validerCommande(id);
+    $("#popup-detail-commande").dxPopup("instance").hide();
+}
+
+async function annulerCommandeDepuisPopup(id) {
+    await annulerCommande(id);
+    $("#popup-detail-commande").dxPopup("instance").hide();
+}
+
+async function genererFactureDepuisPopup(id) {
+    await genererFacture(id);
+    $("#popup-detail-commande").dxPopup("instance").hide();
+}
+
+async function cloturerCommandeDepuisPopup(id) {
+    await cloturerCommande(id);
+    $("#popup-detail-commande").dxPopup("instance").hide();
+}
+
 async function ouvrirDetailCommande(id) {
     try {
         const res = await fetch(`/api/commandes/${id}`);
@@ -714,7 +734,44 @@ async function ouvrirDetailCommande(id) {
             badgeLabel = 'Annulée';
         }
 
+        let actionsHtml = '';
         let linesHtml = '';
+
+        if (c.statut === "EnAttente") {
+            actionsHtml = `
+                <div style="display:flex; gap:10px; margin-top:16px; flex-wrap:wrap;">
+                    <button class="dx-button dx-button-mode-contained dx-button-success"
+                            onclick="validerCommandeDepuisPopup(${c.id_Commande})"">
+                        <i class="fa-solid fa-check"></i> Valider
+                    </button>
+                    <button class="dx-button dx-button-mode-contained dx-button-danger"
+                            onclick="annulerCommandeDepuisPopup(${c.id_Commande})">
+                        <i class="fa-solid fa-xmark"></i> Annuler
+                    </button>
+                </div>
+                `;
+                    }
+        else if (c.statut === "Validee") {
+                actionsHtml = `
+                <div style="display:flex; gap:10px; margin-top:16px; flex-wrap:wrap;">
+                    <button class="dx-button dx-button-mode-contained dx-button-warning"
+                            onclick="genererFactureDepuisPopup(${c.id_Commande})">
+                        <i class="fa-solid fa-file-invoice"></i> Générer Facture
+                    </button>
+                </div>
+                `;
+                    }
+        else if (c.statut === "Facturee") {
+                actionsHtml = `
+                <div style="display:flex; gap:10px; margin-top:16px; flex-wrap:wrap;">
+                    <button class="dx-button dx-button-mode-contained dx-button-success"
+                            onclick="cloturerCommandeDepuisPopup(${c.id_Commande})">
+                        <i class="fa-solid fa-lock"></i> Clôturer
+                    </button>
+                </div>
+                `;
+                    }
+
         c.lignes.forEach(l => {
             const remiseStr = l.remise > 0 ? `(-${l.remise}%)` : '';
             linesHtml += `
@@ -738,13 +795,14 @@ async function ouvrirDetailCommande(id) {
                 </div>
             </div>
 
+            ${actionsHtml}
+
             <div style="margin-bottom: 20px;">
                 <h4 style="font-size:11px; text-transform:uppercase; color:var(--text-light); margin-bottom:6px; font-weight:700;">Client</h4>
                 <div style="padding:12px; background:var(--bg-app); border:1px solid var(--border); border-radius:8px; font-size:13px;">
                     <strong>${c.nomPartenaire}</strong>
                 </div>
             </div>
-
             <div style="margin-bottom: 20px;">
                 <h4 style="font-size:11px; text-transform:uppercase; color:var(--text-light); margin-bottom:6px; font-weight:700;">Lignes de Commande</h4>
                 <div>${linesHtml}</div>
@@ -1837,20 +1895,39 @@ function renderDevisActions(container, options) {
     const d = options.data;
     const $wrap = $("<div style='display:flex; gap:4px; justify-content:center; flex-wrap:wrap;'>");
 
+    // Bouton Voir Détails
+    $("<a>").addClass("action-btn-dx btn-view")
+        .html("<i class='fa-solid fa-eye'></i> Détails")
+        .on("click", () => ouvrirDetailDevis(d.id_Devis))
+        .appendTo($wrap);
+
     if (d.statut === 'Brouillon') {
+
+        // Envoyer
         $("<a>").addClass("action-btn-dx btn-approve")
             .html("<i class='fa-solid fa-paper-plane'></i> Envoyer")
             .on("click", () => envoyerDevis(d.id_Devis))
             .appendTo($wrap);
-        $("<a>").addClass("action-btn-dx btn-cancel")
-            .html("<i class='fa-solid fa-xmark'></i> Refuser")
-            .on("click", () => refuserDevis(d.id_Devis))
-            .appendTo($wrap);
-    } else if (d.statut === 'Envoye') {
+
+        // Accepter directement
         $("<a>").addClass("action-btn-dx btn-invoice")
             .html("<i class='fa-solid fa-check-double'></i> Accepter")
             .on("click", () => accepterDevis(d.id_Devis))
             .appendTo($wrap);
+
+        // Refuser
+        $("<a>").addClass("action-btn-dx btn-cancel")
+            .html("<i class='fa-solid fa-xmark'></i> Refuser")
+            .on("click", () => refuserDevis(d.id_Devis))
+            .appendTo($wrap);
+    }
+    else if (d.statut === 'Envoye') {
+
+        $("<a>").addClass("action-btn-dx btn-invoice")
+            .html("<i class='fa-solid fa-check-double'></i> Accepter")
+            .on("click", () => accepterDevis(d.id_Devis))
+            .appendTo($wrap);
+
         $("<a>").addClass("action-btn-dx btn-cancel")
             .html("<i class='fa-solid fa-xmark'></i> Refuser")
             .on("click", () => refuserDevis(d.id_Devis))
@@ -1858,6 +1935,281 @@ function renderDevisActions(container, options) {
     }
 
     $wrap.appendTo(container);
+}
+
+function initPopupDetailDevis() {
+    $("#popup-detail-devis").dxPopup({
+        title: "Détail du Devis",
+        width: 550,
+        height: "auto",
+        visible: false,
+        dragEnabled: true,
+        showCloseButton: true,
+        contentTemplate: (container) => {
+            $("<div id='detail-devis-content'>").appendTo(container);
+        }
+    });
+}
+
+async function ouvrirDetailDevis(id) {
+    try {
+
+        const res = await fetch(`/api/devis/${id}`);
+        if (!res.ok)
+            throw new Error("Impossible de charger le devis.");
+
+        const d = await res.json();
+
+        const popup = $("#popup-detail-devis").dxPopup("instance");
+        popup.show();
+
+        const $content = $("#detail-devis-content");
+        $content.empty();
+
+        const dateDevis = new Date(d.dateDevis).toLocaleDateString("fr-FR");
+        const dateValidite = new Date(d.dateValidite).toLocaleDateString("fr-FR");
+
+        let badgeClass = "badge-gray";
+        let badgeLabel = d.statut;
+
+        switch (d.statut) {
+            case "Brouillon":
+                badgeClass = "badge-gray";
+                badgeLabel = "Brouillon";
+                break;
+
+            case "Envoye":
+                badgeClass = "badge-blue";
+                badgeLabel = "Envoyé";
+                break;
+
+            case "Accepte":
+                badgeClass = "badge-green";
+                badgeLabel = "Accepté";
+                break;
+
+            case "Refuse":
+                badgeClass = "badge-red";
+                badgeLabel = "Refusé";
+                break;
+
+            case "Expire":
+                badgeClass = "badge-orange";
+                badgeLabel = "Expiré";
+                break;
+        }
+
+        let actionsHtml = "";
+        let linesHtml = "";
+
+        if (d.statut === "Brouillon") {
+            actionsHtml = `
+            <div style="display:flex; gap:10px; margin-top:16px; flex-wrap:wrap;">
+                <button class="dx-button dx-button-mode-contained dx-button-success"
+                        onclick="accepterDevisDepuisPopup(${d.id_Devis})">
+                    <i class="fa-solid fa-check"></i> Accepter
+                </button>
+
+                <button class="dx-button dx-button-mode-contained dx-button-default"
+                        onclick="envoyerDevisDepuisPopup(${d.id_Devis})">
+                    <i class="fa-solid fa-paper-plane"></i> Envoyer
+                </button>
+
+                <button class="dx-button dx-button-mode-contained dx-button-danger"
+                        onclick="refuserDevisDepuisPopup(${d.id_Devis})">
+                    <i class="fa-solid fa-xmark"></i> Refuser
+                </button>
+            </div>
+            `;
+            }
+            else if (d.statut === "Envoye") {
+                actionsHtml = `
+                <div style="display:flex; gap:10px; margin-top:16px; flex-wrap:wrap;">
+                    <button class="dx-button dx-button-mode-contained dx-button-success"
+                            onclick="accepterDevisDepuisPopup(${d.id_Devis})">
+                        <i class="fa-solid fa-check-double"></i> Accepter
+                    </button>
+
+                    <button class="dx-button dx-button-mode-contained dx-button-danger"
+                            onclick="refuserDevisDepuisPopup(${d.id_Devis})">
+                        <i class="fa-solid fa-xmark"></i> Refuser
+                    </button>
+                </div>
+                `;
+            }
+
+        d.lignes.forEach(l => {
+
+            const remiseStr = l.remise > 0 ? `(-${l.remise}%)` : "";
+
+            linesHtml += `
+                <div class="detail-item-row"
+                     style="display:flex;
+                            justify-content:space-between;
+                            padding:8px 12px;
+                            background:var(--bg-app);
+                            border-radius:4px;
+                            margin-bottom:8px;
+                            font-size:13px;">
+
+                    <div style="display:flex; flex-direction:column;">
+                        <strong>${l.designation}</strong>
+
+                        <span style="font-size:11px;color:var(--text-muted);">
+                            ${l.quantite} × ${formatCurrency(l.prixUniversitaire)} ${remiseStr}
+                        </span>
+                    </div>
+
+                    <strong style="align-self:center;">
+                        ${formatCurrency(l.montantTTC)}
+                    </strong>
+                </div>
+            `;
+        });
+
+        $content.append(`
+            <div style="margin-bottom:20px;">
+
+                <h4 style="font-size:11px;
+                           text-transform:uppercase;
+                           color:var(--text-light);
+                           margin-bottom:6px;
+                           font-weight:700;">
+                    Informations Générales
+                </h4>
+
+                <div style="display:grid;
+                            grid-template-columns:1fr 1fr;
+                            gap:12px;
+                            padding:12px;
+                            background:var(--bg-app);
+                            border:1px solid var(--border);
+                            border-radius:8px;
+                            font-size:13px;">
+
+                    <div>
+                        <span style="color:var(--text-muted);">
+                            N° Devis :
+                        </span>
+
+                        <strong>${d.numeroDevis}</strong>
+                    </div>
+
+                    <div>
+                        <span style="color:var(--text-muted);">
+                            Statut :
+                        </span>
+
+                        <span class="badge ${badgeClass}">
+                            ${badgeLabel}
+                        </span>
+                    </div>
+
+                    <div>
+                        <span style="color:var(--text-muted);">
+                            Date :
+                        </span>
+
+                        <strong>${dateDevis}</strong>
+                    </div>
+
+                    <div>
+                        <span style="color:var(--text-muted);">
+                            Validité :
+                        </span>
+
+                        <strong>${dateValidite}</strong>
+                    </div>
+
+                    <div>
+                        <span style="color:var(--text-muted);">
+                            Total HT :
+                        </span>
+
+                        <strong>${formatCurrency(d.montantHT)}</strong>
+                    </div>
+
+                    <div>
+                        <span style="color:var(--text-muted);">
+                            Total TTC :
+                        </span>
+
+                        <strong class="text-primary">
+                            ${formatCurrency(d.montantTTC)}
+                        </strong>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div style="margin-bottom:20px;">
+
+                ${actionsHtml}
+
+                <h4 style="font-size:11px;
+                           text-transform:uppercase;
+                           color:var(--text-light);
+                           margin-bottom:6px;
+                           font-weight:700;">
+                    Client
+                </h4>
+
+                <div style="padding:12px;
+                            background:var(--bg-app);
+                            border:1px solid var(--border);
+                            border-radius:8px;
+                            font-size:13px;">
+
+                    <strong>${d.nomPartenaire}</strong>
+
+                </div>
+
+            </div>
+
+            <div style="margin-bottom:20px;">
+
+                <h4 style="font-size:11px;
+                           text-transform:uppercase;
+                           color:var(--text-light);
+                           margin-bottom:6px;
+                           font-weight:700;">
+                    Lignes du Devis
+                </h4>
+
+                ${linesHtml}
+
+            </div>
+
+            ${d.notes ? `
+                <div>
+
+                    <h4 style="font-size:11px;
+                               text-transform:uppercase;
+                               color:var(--text-light);
+                               margin-bottom:6px;
+                               font-weight:700;">
+                        Notes
+                    </h4>
+
+                    <div style="padding:12px;
+                                background:var(--warning-light);
+                                border-left:3px solid var(--warning);
+                                border-radius:4px;
+                                font-size:13px;
+                                color:#92400e;">
+
+                        ${d.notes}
+
+                    </div>
+
+                </div>
+            ` : ""}
+        `);
+
+    } catch (err) {
+        showToast(err.message, true);
+    }
 }
 
 async function envoyerDevis(id) {
@@ -1905,6 +2257,21 @@ async function accepterDevis(id) {
     } catch (err) {
         showToast(err.message, true);
     }
+}
+
+async function accepterDevisDepuisPopup(id) {
+    await accepterDevis(id);
+    $("#popup-detail-devis").dxPopup("instance").hide();
+}
+
+async function envoyerDevisDepuisPopup(id) {
+    await envoyerDevis(id);
+    $("#popup-detail-devis").dxPopup("instance").hide();
+}
+
+async function refuserDevisDepuisPopup(id) {
+    await refuserDevis(id);
+    $("#popup-detail-devis").dxPopup("instance").hide();
 }
 
 // --- POPUP CREATION DEVIS ---
@@ -2040,8 +2407,9 @@ function ouvrirNouveauDevisPopup() {
                         rowData.TauxTVA = prod.TauxTVA || 19;
                         rowData.quantite = 1;
                         rowData.remise = 0;
+                        rowData.stockDisponible = prod.quantiteStock;
                     }
-                }
+                },
             },
             {
                 dataField: "prixUniversitaire",
@@ -2057,8 +2425,20 @@ function ouvrirNouveauDevisPopup() {
                 dataType: "number",
                 width: 70,
                 alignment: "center",
-                editorOptions: { min: 1 },
-                validationRules: [{ type: "required" }]
+                editorOptions: {
+                    min: 1
+                },
+                validationRules: [{
+                    type: "required"
+                }],
+                setCellValue: (rowData, value) => {
+                    if (value > rowData.stockDisponible) {
+                        // showToast( `Stock disponible : ${rowData.stockDisponible}`, true);
+                        rowData.quantite = rowData.stockDisponible;
+                    } else {
+                        rowData.quantite = value;
+                    }
+                }
             },
             {
                 dataField: "remise",
@@ -2122,6 +2502,25 @@ async function soumettreDevis() {
     if (lines.length === 0) {
         showToast("Veuillez ajouter au moins une ligne.", true);
         return;
+    }
+
+    // Vérification du stock
+    for (const line of lines) {
+
+        const produit = produitsData.find(p => p.id_Produit === line.produitId);
+
+        if (!produit) {
+            showToast("Produit introuvable.", true);
+            return;
+        }
+
+        if (line.quantite > produit.quantiteStock) {
+            showToast(
+                `Stock insuffisant pour "${produit.designation}". Disponible : ${produit.quantiteStock}, demandé : ${line.quantite}.`,
+                true
+            );
+            return;
+        }
     }
 
     const headerData = headerForm.option("formData");

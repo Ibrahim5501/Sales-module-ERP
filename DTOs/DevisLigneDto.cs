@@ -29,5 +29,7 @@ namespace example2.DTOs
     {
         public int Id_DevisLigne { get; set; }
 
+        public string Designation { get; set; }
+
     }
 }
