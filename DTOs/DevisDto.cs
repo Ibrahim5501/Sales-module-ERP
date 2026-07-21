@@ -9,6 +9,12 @@ namespace example2.DTOs
     {
         public int Id_Partenaire { get; set; }
 
+        public DateTime DateValidite { get; set; } = DateTime.Now.AddDays(30);
+
+        public string AdresseLivraison { get; set; } = string.Empty;
+
+        public string AdresseFacturation { get; set; } = string.Empty;
+
         public List<DevisLigneCreateDto> Lignes { get; set; } = new();
     }
 

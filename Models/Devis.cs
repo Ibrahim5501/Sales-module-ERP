@@ -12,6 +12,10 @@ namespace example2.Models
         public DateTime DateDevis { get; set; } = DateTime.Now;
         public DateTime DateValidite { get; set; } = DateTime.Now.AddDays(30);
 
+        public string? AdresseLivraison { get; set; } = string.Empty;
+
+        public string? AdresseFacturation { get; set; } = string.Empty;
+
         public DevisStatut Statut { get; set; }
 
         public decimal MontantHT { get; set; }

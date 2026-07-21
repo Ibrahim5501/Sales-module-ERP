@@ -2280,7 +2280,7 @@ function initPopupDevis() {
         title: "Créer un Devis Commercial",
         width: 820,
         height: "auto",
-        maxHeight: "90vh",
+        maxHeight: null,
         visible: false,
         dragEnabled: true,
         showCloseButton: true,
@@ -2332,6 +2332,12 @@ function initPopupDevis() {
         ]
     });
 }
+
+function ouvrirPopupClient() {
+    $("#popup-client")
+        .dxPopup("instance")
+        .show();
+}
 function ouvrirNouveauDevisPopup() {
     internalDevisLines = [];
     $("#devis-summary-ht").text("0,000 TND");
@@ -2343,27 +2349,108 @@ function ouvrirNouveauDevisPopup() {
 
     // Formulaire entête
     $("#dx-form-devis-header").dxForm({
-        formData: { clientId: null },
-        colCount: 1,
-        items: [{
-            dataField: "clientId",
-            label: {
-                text: "Client"
+        formData: {
+            clientId: null,
+            adresseFacturation: "",
+            adresseLivraison: "",
+            dateValidite: new Date(new Date().setDate(new Date().getDate() + 30))
+        },
+        colCount: 2,
+        items: [
+            {
+                dataField: "clientId",
+                colSpan: 1,
+                label: {
+                    text: "Client"
+                },
+                editorType: "dxSelectBox",
+                editorOptions: {
+                    dataSource: clientsData,
+                    valueExpr: "id_Partenaire",
+                    displayExpr: item =>
+                        item ? `${item.nom} (${item.entreprise})` : "",
+                    searchEnabled: true,
+                    placeholder: "-- Sélectionner le client --",
+
+                    onValueChanged(e) {
+
+                        const client = clientsData.find(c =>
+                            c.id_Partenaire === e.value);
+
+                        if (!client)
+                            return;
+
+                        const form = $("#dx-form-devis-header")
+                            .dxForm("instance");
+
+                        form.updateData("adresseFacturation",
+                            client.adresse);
+
+                        form.updateData("adresseLivraison",
+                            client.adresse);
+                    }
+                },
+                validationRules: [{
+                    type: "required"
+                }]
             },
-            editorType: "dxSelectBox",
-            editorOptions: {
-                dataSource: clientsData,
-                valueExpr: "id_Partenaire",
-                displayExpr: (item) => item ? `${item.nom} (${item.entreprise})` : "",
-                searchEnabled: true,
-                placeholder: "-- Sélectionner le client --"
+            {
+                itemType: "button",
+                horizontalAlignment: "left",
+                buttonOptions: {
+                    icon: "plus",
+                    text: "Nouveau client",
+                    type: "default",
+                    onClick() {
+                        ouvrirPopupClient();
+                    }
+                }
             },
-            validationRules: [{
-                type: "required",
-                message: "Le client est obligatoire."
-            }]
-        }]
-    });
+            {
+                dataField: "adresseFacturation",
+                colSpan: 2,
+                label: {
+                    text: "Adresse de facturation"
+                },
+                editorType: "dxTextArea",
+                editorOptions: {
+                    height: 60
+                }
+            },
+            {
+                dataField: "adresseLivraison",
+                colSpan: 2,
+                label: {
+                    text: "Adresse de livraison"
+                },
+                editorType: "dxTextArea",
+                editorOptions: {
+                    height: 60
+                }
+            },
+            {
+                dataField: "dateValidite",
+                colSpan: 2,
+                label: {
+                    text: "Date de validité"
+                },
+                editorType: "dxDateBox",
+                editorOptions: {
+                    type: "date",
+                    displayFormat: "dd/MM/yyyy",
+                    useMaskBehavior: true,
+                    min: new Date()
+                },
+                validationRules: [
+                    {
+                        type: "required",
+                        message: "La date de validité est obligatoire."
+                    }
+                ]
+            },
+        ]
+    }
+    );
 
     // Grille lignes
     $("#dx-grid-devis-lines").dxDataGrid({
@@ -2452,9 +2539,19 @@ function ouvrirNouveauDevisPopup() {
             },
             {
                 dataField: "TauxTVA",
-                caption: "TVA (%)",
-                width: 80,
-                alignment: "center"
+                caption: "TVA",
+                width: 150,
+                alignment: "center",
+                lookup: {
+                    dataSource: [
+                        { value: 19, text: "19 %" },
+                        { value: 13, text: "13 %" },
+                        { value: 7, text: "7 %" },
+                        { value: 0, text: "0 %" }
+                    ],
+                    valueExpr: "value",
+                    displayExpr: "text"
+                }
             },
             {
                 caption: "Total HT",
@@ -2526,6 +2623,9 @@ async function soumettreDevis() {
     const headerData = headerForm.option("formData");
     const payload = {
         id_Partenaire: headerData.clientId,
+        adresseFacturation: headerData.adresseFacturation,
+        adresseLivraison: headerData.adresseLivraison,
+        dateValidite: headerData.dateValidite,
         lignes: lines.map(l => ({
             id_Produit: l.produitId,
             description: "",

@@ -63,8 +63,10 @@ namespace example2.Controllers
             var devis = new Devis
             {
                 Id_Partenaire = dto.Id_Partenaire,
+                AdresseFacturation = dto.AdresseFacturation,
+                AdresseLivraison = dto.AdresseLivraison,
                 DateDevis = now,
-                DateValidite = now.AddDays(30),
+                DateValidite = dto.DateValidite,
                 Statut = DevisStatut.Brouillon,
                 Lignes = dto.Lignes.Select(l => new DevisLigne
                 {
@@ -311,6 +313,8 @@ namespace example2.Controllers
                 NumeroDevis = d.NumeroDevis,
                 Id_Partenaire = d.Id_Partenaire,
                 NomPartenaire = d.Partenaire != null ? $"{d.Partenaire.Nom} ({d.Partenaire.Entreprise})" : $"Partenaire #{d.Id_Partenaire}",
+                AdresseFacturation = d.AdresseFacturation,
+                AdresseLivraison = d.AdresseLivraison,
                 DateDevis = d.DateDevis,
                 DateValidite = d.DateValidite,
                 Statut = d.Statut,
