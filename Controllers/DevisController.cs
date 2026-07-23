@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using example2.Data;
 using example2.Models;
 using example2.DTOs;
+using example2.Services;
+using Microsoft.AspNetCore.Hosting;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -17,10 +19,16 @@ namespace example2.Controllers
     public class DevisController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly IPdfService _pdfService;
+        private readonly IEmailService _emailService;
+        private readonly IWebHostEnvironment _env;
 
-        public DevisController(ApplicationDbContext context)
+        public DevisController(ApplicationDbContext context, IPdfService pdfService, IEmailService emailService, IWebHostEnvironment env)
         {
             _context = context;
+            _pdfService = pdfService;
+            _emailService = emailService;
+            _env = env;
         }
 
         // GET: api/Devis
@@ -206,7 +214,73 @@ namespace example2.Controllers
             devis.Statut = DevisStatut.Envoye;
             await _context.SaveChangesAsync();
 
+            // Generate PDF file & save to disk
+            byte[] pdfBytes = _pdfService.GenerateDevisPdf(devis);
+            _pdfService.SaveDevisPdf(devis, _env.WebRootPath);
+
+            // Send email to client if email exists
+            if (devis.Partenaire != null && !string.IsNullOrWhiteSpace(devis.Partenaire.Email))
+            {
+                await _emailService.SendDevisEmailAsync(devis.Partenaire.Email, devis.Partenaire.Nom, devis, pdfBytes);
+            }
+
             return Ok(MapToDto(devis));
+        }
+
+        // POST: api/Devis/5/envoyer
+        [HttpPost("{id}/envoyer")]
+        public async Task<ActionResult> Envoyer(int id)
+        {
+            var devis = await _context.Devis
+                .Include(d => d.Lignes)
+                    .ThenInclude(l => l.Produit)
+                .Include(d => d.Partenaire)
+                .FirstOrDefaultAsync(d => d.Id_Devis == id);
+
+            if (devis == null)
+                return NotFound(new { message = "Devis non trouvé." });
+
+            if (devis.Statut == DevisStatut.Brouillon)
+            {
+                devis.Statut = DevisStatut.Envoye;
+                await _context.SaveChangesAsync();
+            }
+
+            // Generate PDF file & save to disk
+            byte[] pdfBytes = _pdfService.GenerateDevisPdf(devis);
+            string pdfUrl = _pdfService.SaveDevisPdf(devis, _env.WebRootPath);
+
+            // Send email to client
+            string emailClient = devis.Partenaire?.Email ?? "";
+            string nomClient = devis.Partenaire?.Nom ?? "Client";
+
+            var emailResult = await _emailService.SendDevisEmailAsync(emailClient, nomClient, devis, pdfBytes);
+
+            return Ok(new
+            {
+                message = emailResult.Message,
+                pdfUrl = pdfUrl,
+                devis = MapToDto(devis)
+            });
+        }
+
+        // GET: api/Devis/5/pdf
+        [HttpGet("{id}/pdf")]
+        [AllowAnonymous]
+        public async Task<ActionResult> GetPdf(int id)
+        {
+            var devis = await _context.Devis
+                .Include(d => d.Lignes)
+                    .ThenInclude(l => l.Produit)
+                .Include(d => d.Partenaire)
+                .FirstOrDefaultAsync(d => d.Id_Devis == id);
+
+            if (devis == null)
+                return NotFound(new { message = "Devis non trouvé." });
+
+            byte[] pdfBytes = _pdfService.GenerateDevisPdf(devis);
+            var fileName = $"Devis_{devis.NumeroDevis ?? devis.Id_Devis.ToString()}.pdf";
+            return File(pdfBytes, "application/pdf", fileName);
         }
 
         // POST: api/Devis/5/annuler
@@ -238,6 +312,7 @@ namespace example2.Controllers
             var devis = await _context.Devis
                 .Include(d => d.Lignes)
                     .ThenInclude(l => l.Produit)
+                .Include(d => d.Partenaire)
                 .FirstOrDefaultAsync(d => d.Id_Devis == id);
 
             if (devis == null)
@@ -257,6 +332,7 @@ namespace example2.Controllers
                 Statut = CommandeStatut.EnAttente,
                 MontantHT = devis.MontantHT,
                 MontantTTC = devis.MontantTTC,
+                MontantTVA = devis.MontantTVA,
                 Lignes = devis.Lignes.Select(l => new CommandeLigne
                 {
                     Description = l.Description,
@@ -276,7 +352,13 @@ namespace example2.Controllers
             commande.NumeroCommande = $"CMD-2026-{commande.Id_Commande:D3}";
             await _context.SaveChangesAsync();
 
-            var client = await _context.Partenaires.FirstOrDefaultAsync(p => p.Id_Partenaire == commande.Id_Partenaire);
+            var client = devis.Partenaire ?? await _context.Partenaires.FirstOrDefaultAsync(p => p.Id_Partenaire == commande.Id_Partenaire);
+
+            // Generate PDFs for Devis and Commande
+            _pdfService.SaveDevisPdf(devis, _env.WebRootPath);
+            commande.Partenaire = client;
+            commande.Devis = devis;
+            _pdfService.SaveCommandePdf(commande, _env.WebRootPath);
 
             return Ok(new CommandeDto
             {

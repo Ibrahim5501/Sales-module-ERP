@@ -19,6 +19,8 @@ namespace example2
                 options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
             builder.Services.AddScoped<example2.Services.IVenteService, example2.Services.VenteService>();
+            builder.Services.AddScoped<example2.Services.IPdfService, example2.Services.PdfService>();
+            builder.Services.AddScoped<example2.Services.IEmailService, example2.Services.EmailService>();
 
             // Configure JWT Authentication
             var jwtSettings = builder.Configuration.GetSection("Jwt");

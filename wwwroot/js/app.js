@@ -582,13 +582,21 @@ function renderStatusBadge(container, options) {
 // RENDU ACTIONS DES COMMANDES
 function renderCommandeActions(container, options) {
     const c = options.data;
-    const $wrapper = $("<div style='display:flex; justify-content:center;'>");
+    const $wrapper = $("<div style='display:flex; gap:4px; justify-content:center; flex-wrap:wrap;'>");
 
     // Bouton Voir Détails
     $("<a>").addClass("action-btn-dx btn-view")
         .html("<i class='fa-solid fa-eye'></i> Détails")
         .on("click", () => ouvrirDetailCommande(c.id_Commande))
         .appendTo($wrapper);
+
+    // Bouton Télécharger PDF
+    $("<a>").addClass("action-btn-dx btn-view")
+        .attr("href", `/api/commandes/${c.id_Commande}/pdf`)
+        .attr("target", "_blank")
+        .html("<i class='fa-solid fa-file-pdf'></i> PDF")
+        .appendTo($wrapper);
+
     if (c.statut === 'EnAttente') {
         // Valider
         $("<a>").addClass("action-btn-dx btn-approve")
@@ -617,14 +625,14 @@ function renderCommandeActions(container, options) {
 
 // ACTION LOGIQUE DES COMMANDES
 async function validerCommande(id) {
-    if (!confirm("Valider cette commande ? Le stock sera mis à jour.")) return;
+    if (!confirm("Valider cette commande ? Le stock sera mis à jour et un fichier PDF sera généré.")) return;
     try {
         const res = await fetch(`/api/commandes/${id}/valider`, { method: 'POST' });
         if (!res.ok) {
             const err = await res.json();
             throw new Error(err.message || "Erreur de validation");
         }
-        showToast("Commande validée ! Le stock est mis à jour.");
+        showToast("Commande validée ! Fichier PDF généré et stock mis à jour.");
         chargerToutesLesDonnees();
         chargerCommandes();
     } catch (err) {
@@ -741,37 +749,38 @@ async function ouvrirDetailCommande(id) {
             actionsHtml = `
                 <div style="display:flex; gap:10px; margin-top:16px; flex-wrap:wrap;">
                     <button class="dx-button dx-button-mode-contained dx-button-success"
-                            onclick="validerCommandeDepuisPopup(${c.id_Commande})"">
+                            onclick="validerCommandeDepuisPopup(${c.id_Commande})">
                         <i class="fa-solid fa-check"></i> Valider
                     </button>
+                    <a class="dx-button dx-button-mode-contained dx-button-default"
+                       style="text-decoration:none; display:inline-flex; align-items:center; gap:5px;"
+                       href="/api/commandes/${c.id_Commande}/pdf" target="_blank">
+                        <i class="fa-solid fa-file-pdf"></i> Télécharger PDF
+                    </a>
                     <button class="dx-button dx-button-mode-contained dx-button-danger"
                             onclick="annulerCommandeDepuisPopup(${c.id_Commande})">
                         <i class="fa-solid fa-xmark"></i> Annuler
                     </button>
                 </div>
                 `;
-                    }
-        else if (c.statut === "Validee") {
-                actionsHtml = `
+        }
+        else {
+            actionsHtml = `
                 <div style="display:flex; gap:10px; margin-top:16px; flex-wrap:wrap;">
+                    ${c.statut === "Validee" ? `
                     <button class="dx-button dx-button-mode-contained dx-button-warning"
                             onclick="genererFactureDepuisPopup(${c.id_Commande})">
                         <i class="fa-solid fa-file-invoice"></i> Générer Facture
                     </button>
+                    ` : ""}
+                    <a class="dx-button dx-button-mode-contained dx-button-default"
+                       style="text-decoration:none; display:inline-flex; align-items:center; gap:5px;"
+                       href="/api/commandes/${c.id_Commande}/pdf" target="_blank">
+                        <i class="fa-solid fa-file-pdf"></i> Télécharger PDF
+                    </a>
                 </div>
                 `;
-                    }
-        else if (c.statut === "Facturee") {
-                actionsHtml = `
-                <div style="display:flex; gap:10px; margin-top:16px; flex-wrap:wrap;">
-                    <button class="dx-button dx-button-mode-contained dx-button-success"
-                            onclick="cloturerCommandeDepuisPopup(${c.id_Commande})">
-                        <i class="fa-solid fa-lock"></i> Clôturer
-                    </button>
-                </div>
-                `;
-                    }
-
+        }
         c.lignes.forEach(l => {
             const remiseStr = l.remise > 0 ? `(-${l.remise}%)` : '';
             linesHtml += `
@@ -1901,6 +1910,13 @@ function renderDevisActions(container, options) {
         .on("click", () => ouvrirDetailDevis(d.id_Devis))
         .appendTo($wrap);
 
+    // Bouton Télécharger PDF
+    $("<a>").addClass("action-btn-dx btn-view")
+        .attr("href", `/api/devis/${d.id_Devis}/pdf`)
+        .attr("target", "_blank")
+        .html("<i class='fa-solid fa-file-pdf'></i> PDF")
+        .appendTo($wrap);
+
     if (d.statut === 'Brouillon') {
 
         // Envoyer
@@ -2015,6 +2031,12 @@ async function ouvrirDetailDevis(id) {
                     <i class="fa-solid fa-paper-plane"></i> Envoyer
                 </button>
 
+                <a class="dx-button dx-button-mode-contained dx-button-default"
+                   style="text-decoration:none; display:inline-flex; align-items:center; gap:5px;"
+                   href="/api/devis/${d.id_Devis}/pdf" target="_blank">
+                    <i class="fa-solid fa-file-pdf"></i> Télécharger PDF
+                </a>
+
                 <button class="dx-button dx-button-mode-contained dx-button-danger"
                         onclick="refuserDevisDepuisPopup(${d.id_Devis})">
                     <i class="fa-solid fa-xmark"></i> Refuser
@@ -2022,18 +2044,28 @@ async function ouvrirDetailDevis(id) {
             </div>
             `;
             }
-            else if (d.statut === "Envoye") {
+            else {
                 actionsHtml = `
                 <div style="display:flex; gap:10px; margin-top:16px; flex-wrap:wrap;">
+                    ${d.statut === "Envoye" ? `
                     <button class="dx-button dx-button-mode-contained dx-button-success"
                             onclick="accepterDevisDepuisPopup(${d.id_Devis})">
                         <i class="fa-solid fa-check-double"></i> Accepter
                     </button>
+                    ` : ""}
 
+                    <a class="dx-button dx-button-mode-contained dx-button-default"
+                       style="text-decoration:none; display:inline-flex; align-items:center; gap:5px;"
+                       href="/api/devis/${d.id_Devis}/pdf" target="_blank">
+                        <i class="fa-solid fa-file-pdf"></i> Télécharger PDF
+                    </a>
+
+                    ${(d.statut === "Envoye") ? `
                     <button class="dx-button dx-button-mode-contained dx-button-danger"
                             onclick="refuserDevisDepuisPopup(${d.id_Devis})">
                         <i class="fa-solid fa-xmark"></i> Refuser
                     </button>
+                    ` : ""}
                 </div>
                 `;
             }
@@ -2213,14 +2245,15 @@ async function ouvrirDetailDevis(id) {
 }
 
 async function envoyerDevis(id) {
-    if (!confirm("Envoyer ce devis au client ? Son statut passera à 'Envoyé'.")) return;
+    if (!confirm("Envoyer ce devis au client par e-mail ? Le statut passera à 'Envoyé' et le PDF sera généré.")) return;
     try {
-        const res = await fetch(`/api/devis/${id}/valider`, { method: 'POST' });
+        const res = await fetch(`/api/devis/${id}/envoyer`, { method: 'POST' });
         if (!res.ok) {
             const e = await res.json();
-            throw new Error(e.message);
+            throw new Error(e.message || "Erreur lors de l'envoi");
         }
-        showToast("Devis envoyé avec succès !");
+        const data = await res.json();
+        showToast(data.message || "Devis envoyé et e-mail transmis au client !");
         chargerDevis();
     } catch (err) {
         showToast(err.message, true);
@@ -2251,7 +2284,7 @@ async function accepterDevis(id) {
             throw new Error(e.message);
         }
         const cmd = await res.json();
-        showToast(`Devis accepté ! Commande ${cmd.numeroCommande} créée.`);
+        showToast(`Devis accepté ! Commande ${cmd.numeroCommande} et PDF générés.`);
         chargerDevis();
         chargerToutesLesDonnees();
     } catch (err) {
@@ -2474,6 +2507,7 @@ function ouvrirNouveauDevisPopup() {
             {
                 dataField: "produitId",
                 caption: "Article / Produit",
+                width: 150,
                 lookup: {
                     dataSource: produitsData.filter(p =>
                         p.actif === true &&
@@ -2540,7 +2574,7 @@ function ouvrirNouveauDevisPopup() {
             {
                 dataField: "TauxTVA",
                 caption: "TVA",
-                width: 150,
+                width: 130,
                 alignment: "center",
                 lookup: {
                     dataSource: [

@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using example2.Data;
 using example2.Models;
 using example2.DTOs;
+using example2.Services;
+using Microsoft.AspNetCore.Hosting;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -17,10 +19,14 @@ namespace example2.Controllers
     public class CommandesController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly IPdfService _pdfService;
+        private readonly IWebHostEnvironment _env;
 
-        public CommandesController(ApplicationDbContext context)
+        public CommandesController(ApplicationDbContext context, IPdfService pdfService, IWebHostEnvironment env)
         {
             _context = context;
+            _pdfService = pdfService;
+            _env = env;
         }
 
         [HttpGet]
@@ -128,7 +134,28 @@ namespace example2.Controllers
 
             cmd.Statut = CommandeStatut.Validee;
             await _context.SaveChangesAsync();
+
+            // Save Commande PDF file
+            _pdfService.SaveCommandePdf(cmd, _env.WebRootPath);
+
             return Ok(MapToDto(cmd));
+        }
+
+        [HttpGet("{id}/pdf")]
+        [AllowAnonymous]
+        public async Task<ActionResult> GetPdf(long id)
+        {
+            var cmd = await _context.Commandes
+                .Include(c => c.Lignes)
+                    .ThenInclude(l => l.Produit)
+                .Include(c => c.Partenaire)
+                .Include(c => c.Devis)
+                .FirstOrDefaultAsync(c => c.Id_Commande == id);
+            if (cmd == null) return NotFound(new { message = "Commande non trouvée." });
+
+            byte[] pdfBytes = _pdfService.GenerateCommandePdf(cmd);
+            var fileName = $"Commande_{cmd.NumeroCommande ?? cmd.Id_Commande.ToString()}.pdf";
+            return File(pdfBytes, "application/pdf", fileName);
         }
 
         [HttpPost("{id}/annuler")]
