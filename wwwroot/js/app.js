@@ -1653,6 +1653,31 @@ function initPopupArticle() {
     });
 }
 
+function ouvrirPopupArticle() {
+    const popup = $("#popup-article").dxPopup("instance");
+
+    // Reset the form if it already exists
+    const form = $("#dx-form-article").dxForm("instance");
+
+    if (form) {
+        form.option("formData", {
+            Code: "",
+            Designation: "",
+            id_Categorie: null,
+            prixUniversitaire: 0,
+            QuantiteStock: 10,
+            Unite: "Unité",
+            seuilAlerte: 3,
+            TauxTVA: 19,
+            Actif: 1
+        });
+
+        form.resetValidation();
+    }
+
+    popup.show();
+}
+
 async function creerCategorie() {
     const form = $("#form-categorie").dxForm("instance");
     if (!form.validate().isValid)
@@ -1709,7 +1734,12 @@ async function soumettreArticle() {
         showToast("Article créé avec succès !");
         $("#popup-article").dxPopup("instance").hide();
         chargerToutesLesDonnees();
-        if (activeTab === 'articles') chargerProduits();
+        if (activeTab === 'articles')
+            chargerProduits();
+        const grid = $("#dx-grid-devis-lines").dxDataGrid("instance");
+        if (grid) {
+            grid.refresh();
+        }
     } catch (err) {
         showToast(err.message, true);
     }
@@ -2428,16 +2458,35 @@ function ouvrirNouveauDevisPopup() {
                 }]
             },
             {
-                itemType: "button",
-                horizontalAlignment: "left",
-                buttonOptions: {
-                    icon: "plus",
-                    text: "Nouveau client",
-                    type: "default",
-                    onClick() {
-                        ouvrirPopupClient();
+                itemType: "group",
+                colSpan: 1,
+                colCount: 2,
+                items: [
+                    {
+                        itemType: "button",
+                        buttonOptions: {
+                            icon: "user",
+                            text: "Nouveau client",
+                            type: "default",
+                            width: "100%",
+                            onClick() {
+                                ouvrirPopupClient();
+                            }
+                        }
+                    },
+                    {
+                        itemType: "button",
+                        buttonOptions: {
+                            icon: "product",
+                            text: "Nouvel article",
+                            type: "normal",
+                            width: "100%",
+                            onClick() {
+                                ouvrirPopupArticle();
+                            }
+                        }
                     }
-                }
+                ]
             },
             {
                 dataField: "adresseFacturation",
