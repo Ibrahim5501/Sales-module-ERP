@@ -55,7 +55,7 @@ namespace example2.Services
 
             mail.Body = $@"
                 <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;'>
-                    <h2 style='color: #2563eb; margin-top: 0;'>AURA ERP - Devis Commercial</h2>
+                    <h2 style='color: #2563eb; margin-top: 0;'>DIGI ERP - Devis Commercial</h2>
                     <p>Bonjour <strong>{WebUtility.HtmlEncode(clientName)}</strong>,</p>
                     <p>Veuillez trouver ci-joint votre devis <strong>n° {devis.NumeroDevis}</strong> d'un montant total de <strong>{devis.MontantTTC:N2} TND</strong> TTC.</p>
                     <table style='width: 100%; border-collapse: collapse; margin: 20px 0;'>
@@ -82,7 +82,7 @@ namespace example2.Services
                     </table>
                     <p>Le document officiel au format PDF est disponible en pièce jointe.</p>
                     <hr style='border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;' />
-                    <p style='font-size: 12px; color: #64748b;'>Cet e-mail a été généré automatiquement par l'application AURA ERP.</p>
+                    <p style='font-size: 12px; color: #64748b;'>Cet e-mail a été généré automatiquement par l'application DIGI ERP.</p>
                 </div>";
 
             if (pdfBytes != null && pdfBytes.Length > 0)

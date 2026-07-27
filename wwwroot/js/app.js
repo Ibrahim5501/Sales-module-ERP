@@ -1952,7 +1952,10 @@ function renderDevisActions(container, options) {
         // Envoyer
         $("<a>").addClass("action-btn-dx btn-approve")
             .html("<i class='fa-solid fa-paper-plane'></i> Envoyer")
-            .on("click", () => envoyerDevis(d.id_Devis))
+            .on("click", function (e) {
+                e.preventDefault();
+                envoyerDevis(d.id_Devis);
+            })
             .appendTo($wrap);
 
         // Accepter directement
