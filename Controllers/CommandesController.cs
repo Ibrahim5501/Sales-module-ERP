@@ -138,6 +138,33 @@ namespace example2.Controllers
             // Save Commande PDF file
             _pdfService.SaveCommandePdf(cmd, _env.WebRootPath);
 
+            // Auto-create Bon de Livraison
+            var partenaire = await _context.Partenaires.FirstOrDefaultAsync(p => p.Id_Partenaire == cmd.Id_Partenaire);
+            var devis      = await _context.Devis.FirstOrDefaultAsync(d => d.Id_Devis == cmd.Id_Devis);
+
+            int nextLivId = (_context.Livraisons.Max(l => (int?)l.Id_Livraison) ?? 0) + 1;
+            var now2      = DateTime.Now;
+
+            var livraison = new Livraison
+            {
+                NumeroLivraison = $"LIV-{now2.Year}-{nextLivId:D3}",
+                Adresse  = devis?.AdresseLivraison ?? partenaire?.Adresse ?? string.Empty,
+                DatePrevue   = now2.AddDays(2),
+                DateEcheance = now2.AddDays(7),
+                Statut       = LivraisonStatut.EnAttente,
+                Id_Commande  = cmd.Id_Commande,
+                Lignes = cmd.Lignes.Select(l => new LivraisonLigne
+                {
+                    Id_Produit   = l.Id_Produit,
+                    QteCommande  = l.Quantite,
+                    QteReserve   = l.Quantite,
+                    QteFait      = 0
+                }).ToList()
+            };
+
+            _context.Livraisons.Add(livraison);
+            await _context.SaveChangesAsync();
+
             return Ok(MapToDto(cmd));
         }
 

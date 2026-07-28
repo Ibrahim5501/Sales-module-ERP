@@ -721,32 +721,82 @@ body.dark-mode .dx-overlay-content.dx-popup-normal { background: var(--bg-white)
 /* ================================================================
    ACTION BUTTONS IN GRIDS
    ================================================================ */
-.dx-link.action-btn-dx {
-    padding: 4px 10px;
+.action-btn-dx {
+    padding: 7px 14px;
     border-radius: var(--r-sm);
-    text-decoration: none;
-    font-size: 11.5px;
+    font-size: 12px;
     font-weight: 600;
-    margin: 0 3px;
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    justify-content: center;
+    gap: 6px;
     cursor: pointer;
     transition: all var(--t);
     border: 1px solid transparent;
+    outline: none;
+    background: transparent;
+    font-family: inherit;
 }
 
-.action-btn-dx.btn-view    { background: var(--accent-light); color: var(--navy); border-color: #c5d9f1; }
-.action-btn-dx.btn-view:hover { background: var(--navy); color: #fff; }
+    .action-btn-dx i {
+        font-size: 13px;
+    }
 
-.action-btn-dx.btn-approve { background: var(--success-light); color: var(--success); border-color: #b8e6c5; }
-.action-btn-dx.btn-approve:hover { background: var(--success); color: #fff; }
+    .action-btn-dx:hover {
+        transform: translateY(-1px);
+    }
 
-.action-btn-dx.btn-invoice { background: var(--warning-light); color: var(--warning); border-color: #ffd8a8; }
-.action-btn-dx.btn-invoice:hover { background: var(--warning); color: #fff; }
+    .action-btn-dx:active {
+        transform: translateY(0);
+    }
 
-.action-btn-dx.btn-cancel  { background: var(--danger-light); color: var(--danger); border-color: #f5c0c4; }
-.action-btn-dx.btn-cancel:hover { background: var(--danger); color: #fff; }
+    /* PDF */
+    .action-btn-dx.btn-view {
+        background: var(--accent-light);
+        color: var(--navy);
+        border-color: #c5d9f1;
+    }
+
+        .action-btn-dx.btn-view:hover {
+            background: var(--navy);
+            color: #fff;
+        }
+
+    /* Approve / Send */
+    .action-btn-dx.btn-approve {
+        background: var(--success-light);
+        color: var(--success);
+        border-color: #b8e6c5;
+    }
+
+        .action-btn-dx.btn-approve:hover {
+            background: var(--success);
+            color: #fff;
+        }
+
+    /* Invoice */
+    .action-btn-dx.btn-invoice {
+        background: var(--warning-light);
+        color: var(--warning);
+        border-color: #ffd8a8;
+    }
+
+        .action-btn-dx.btn-invoice:hover {
+            background: var(--warning);
+            color: #fff;
+        }
+
+    /* Reject / Cancel */
+    .action-btn-dx.btn-cancel {
+        background: var(--danger-light);
+        color: var(--danger);
+        border-color: #f5c0c4;
+    }
+
+        .action-btn-dx.btn-cancel:hover {
+            background: var(--danger);
+            color: #fff;
+        }
 
 /* ================================================================
    STATUS BADGES

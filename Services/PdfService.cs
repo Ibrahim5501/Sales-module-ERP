@@ -337,6 +337,150 @@ namespace example2.Services
             return $"/pdfs/commandes/{fileName}";
         }
 
+        public string SaveLivraisonPdf(Livraison livraison, string webRootPath)
+        {
+            var pdfBytes = GenerateLivraisonPdf(livraison);
+            var folder = Path.Combine(webRootPath, "pdfs", "livraisons");
+            if (!Directory.Exists(folder))
+                Directory.CreateDirectory(folder);
+            var fileName = $"Livraison_{livraison.NumeroLivraison ?? livraison.Id_Livraison.ToString()}.pdf";
+            var filePath = Path.Combine(folder, fileName);
+            File.WriteAllBytes(filePath, pdfBytes);
+            return $"/pdfs/livraisons/{fileName}";
+        }
+
+        public byte[] GenerateLivraisonPdf(Livraison livraison)
+        {
+            using var stream = new MemoryStream();
+            var document = new PdfDocument();
+            document.Info.Title = $"Bon de Livraison {livraison.NumeroLivraison}";
+
+            var page = document.AddPage();
+            page.Size = PdfSharpCore.PageSize.A4;
+            var gfx = XGraphics.FromPdfPage(page);
+
+            // Colors
+            var primaryColor = XColor.FromArgb(15, 23, 42);     // Dark Slate
+            var accentColor  = XColor.FromArgb(124, 58, 237);   // Purple
+            var textColor    = XColor.FromArgb(51, 65, 85);
+            var lightBg      = XColor.FromArgb(245, 243, 255);  // Light purple tint
+            var greenColor   = XColor.FromArgb(16, 185, 129);
+
+            // Fonts
+            var fontTitle  = new XFont("Arial", 20, XFontStyle.Bold);
+            var fontHeader = new XFont("Arial", 11, XFontStyle.Bold);
+            var fontBody   = new XFont("Arial",  9, XFontStyle.Regular);
+            var fontBold   = new XFont("Arial",  9, XFontStyle.Bold);
+            var fontSmall  = new XFont("Arial",  8, XFontStyle.Italic);
+
+            double yPos      = 40;
+            double margin    = 40;
+            double pageWidth = page.Width.Point - (margin * 2);
+
+            // ---- HEADER ----
+            gfx.DrawString("DIGI ERP", new XFont("Arial", 22, XFontStyle.Bold), new XSolidBrush(accentColor), margin, yPos);
+            gfx.DrawString("BON DE LIVRAISON", fontTitle, new XSolidBrush(primaryColor), page.Width.Point - margin - 200, yPos);
+            yPos += 25;
+
+            gfx.DrawString("Module de Ventes & Distribution", fontSmall, new XSolidBrush(textColor), margin, yPos);
+            gfx.DrawString($"N°: {livraison.NumeroLivraison ?? $"LIV-{livraison.Id_Livraison}"}", fontHeader, new XSolidBrush(textColor), page.Width.Point - margin - 160, yPos);
+            yPos += 30;
+
+            gfx.DrawLine(new XPen(accentColor, 2), margin, yPos, page.Width.Point - margin, yPos);
+            yPos += 20;
+
+            // ---- INFO BOXES ----
+            double boxWidth = (pageWidth - 20) / 2;
+
+            // Left box: Livraison Info
+            gfx.DrawRectangle(new XSolidBrush(lightBg), margin, yPos, boxWidth, 90);
+            gfx.DrawRectangle(new XPen(XColor.FromArgb(221, 214, 254)), margin, yPos, boxWidth, 90);
+            double boxY = yPos + 15;
+            gfx.DrawString("INFORMATIONS LIVRAISON", fontHeader, new XSolidBrush(primaryColor), margin + 10, boxY);
+            boxY += 16;
+            gfx.DrawString($"Date prévue:   {livraison.DatePrevue:dd/MM/yyyy}", fontBody, new XSolidBrush(textColor), margin + 10, boxY);
+            boxY += 14;
+            gfx.DrawString($"Date échéance: {livraison.DateEcheance:dd/MM/yyyy}", fontBody, new XSolidBrush(textColor), margin + 10, boxY);
+            boxY += 14;
+            gfx.DrawString($"Statut:        {livraison.Statut}", fontBody, new XSolidBrush(textColor), margin + 10, boxY);
+            boxY += 14;
+            if (livraison.Commande?.Devis != null)
+                gfx.DrawString($"Devis origine: {livraison.Commande.Devis.NumeroDevis}", fontBody, new XSolidBrush(textColor), margin + 10, boxY);
+
+            // Right box: Client + Delivery Address
+            double rightBoxX = margin + boxWidth + 20;
+            gfx.DrawRectangle(new XSolidBrush(lightBg), rightBoxX, yPos, boxWidth, 90);
+            gfx.DrawRectangle(new XPen(XColor.FromArgb(221, 214, 254)), rightBoxX, yPos, boxWidth, 90);
+            boxY = yPos + 15;
+            gfx.DrawString("CLIENT & ADRESSE", fontHeader, new XSolidBrush(primaryColor), rightBoxX + 10, boxY);
+            boxY += 16;
+            string clientNom = livraison.Commande?.Partenaire != null
+                ? $"{livraison.Commande.Partenaire.Nom} ({livraison.Commande.Partenaire.Entreprise})"
+                : $"Commande #{livraison.Id_Commande}";
+            gfx.DrawString(Truncate(clientNom, 35), fontBold, new XSolidBrush(textColor), rightBoxX + 10, boxY);
+            boxY += 14;
+            gfx.DrawString($"Adresse client:   {Truncate(livraison.Commande?.Partenaire?.Adresse ?? "N/A", 30)}", fontBody, new XSolidBrush(textColor), rightBoxX + 10, boxY);
+            boxY += 14;
+            gfx.DrawString($"Adresse livraison: {Truncate(livraison.Adresse, 28)}", fontBody, new XSolidBrush(textColor), rightBoxX + 10, boxY);
+
+            yPos += 110;
+
+            // ---- TABLE HEADER ----
+            gfx.DrawRectangle(new XSolidBrush(primaryColor), margin, yPos, pageWidth, 22);
+
+            double xProd  = margin + 10;
+            double xQteC  = margin + pageWidth - 200;
+            double xQteL  = margin + pageWidth - 100;
+
+            gfx.DrawString("Produit / Article",       fontHeader, XBrushes.White, xProd,  yPos + 15);
+            gfx.DrawString("Qté Commandée",           fontHeader, XBrushes.White, xQteC,  yPos + 15);
+            gfx.DrawString("Qté Livrée",              fontHeader, XBrushes.White, xQteL,  yPos + 15);
+            yPos += 22;
+
+            // ---- TABLE ROWS ----
+            bool alt = false;
+            foreach (var ligne in livraison.Lignes)
+            {
+                if (alt)
+                    gfx.DrawRectangle(new XSolidBrush(lightBg), margin, yPos, pageWidth, 20);
+
+                string prodNom = ligne.Produit?.Designation ?? $"Produit #{ligne.Id_Produit}";
+                gfx.DrawString(Truncate(prodNom, 48),              fontBody, new XSolidBrush(textColor), xProd, yPos + 14);
+                gfx.DrawString(ligne.QteCommande.ToString("0.##"), fontBody, new XSolidBrush(textColor), xQteC, yPos + 14);
+                gfx.DrawString(ligne.QteFait.ToString("0.##"),     fontBold, new XSolidBrush(textColor), xQteL, yPos + 14);
+
+                yPos += 20;
+                alt = !alt;
+            }
+
+            gfx.DrawLine(new XPen(XColor.FromArgb(203, 213, 225), 1), margin, yPos, page.Width.Point - margin, yPos);
+            yPos += 30;
+
+            // ---- SIGNATURE ZONE ----
+            double sigWidth  = 200;
+            double sigHeight = 80;
+            double sigX      = page.Width.Point - margin - sigWidth;
+
+            gfx.DrawRectangle(new XSolidBrush(XColor.FromArgb(249, 250, 251)), sigX, yPos, sigWidth, sigHeight);
+            gfx.DrawRectangle(new XPen(XColor.FromArgb(209, 213, 219)), sigX, yPos, sigWidth, sigHeight);
+            gfx.DrawString("Signature du Client", fontHeader, new XSolidBrush(primaryColor), sigX + 40, yPos + 18);
+            gfx.DrawString("Lu et approuvé",      fontSmall,  new XSolidBrush(textColor),    sigX + 55, yPos + 34);
+
+            // Left signature note
+            gfx.DrawString("Livré par:", fontBold,  new XSolidBrush(primaryColor), margin, yPos + 18);
+            gfx.DrawString("Date:",      fontBody,  new XSolidBrush(textColor),    margin, yPos + 36);
+            gfx.DrawString("Signature:", fontBody,  new XSolidBrush(textColor),    margin, yPos + 54);
+
+            // ---- FOOTER ----
+            double footerY = page.Height.Point - 30;
+            gfx.DrawLine(new XPen(XColor.FromArgb(226, 232, 240), 1), margin, footerY - 10, page.Width.Point - margin, footerY - 10);
+            gfx.DrawString("DIGI ERP - Document généré automatiquement", fontSmall, new XSolidBrush(textColor), margin, footerY);
+            gfx.DrawString("Page 1 sur 1", fontSmall, new XSolidBrush(textColor), page.Width.Point - margin - 50, footerY);
+
+            document.Save(stream, false);
+            return stream.ToArray();
+        }
+
         private static string Truncate(string str, int maxLength)
         {
             if (string.IsNullOrEmpty(str)) return "";

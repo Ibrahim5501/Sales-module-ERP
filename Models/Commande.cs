@@ -10,7 +10,7 @@ namespace example2.Models
         [Key]
         public int Id_Commande { get; set; }
 
-        public string NumeroCommande { get; set; }
+        public string NumeroCommande { get; set; } = string.Empty;
 
         public DateTime DateCommande { get; set; }
 
@@ -35,6 +35,9 @@ namespace example2.Models
 
         [JsonIgnore]
         public Facture? Facture { get; set; }
+
+        [JsonIgnore]
+        public ICollection<Livraison> Livraisons { get; set; } = new List<Livraison>();
     }
 
     public enum CommandeStatut

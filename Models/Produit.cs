@@ -34,5 +34,8 @@ namespace example2.Models
 
         [JsonIgnore]
         public ICollection<CommandeLigne> CommandeLignes { get; set; } = new List<CommandeLigne>();
+
+        [JsonIgnore]
+        public ICollection<LivraisonLigne> LivraisonLignes { get; set; } = new List<LivraisonLigne>();
     }
 }

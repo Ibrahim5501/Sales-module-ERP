@@ -86,6 +86,10 @@
                     <i class="fa-solid fa-cart-shopping"></i>
                     <span>Commandes</span>
                 </a>
+                <a href="#livraisons" class="topnav-item" id="nav-livraisons">
+                    <i class="fa-solid fa-truck"></i>
+                    <span>Livraisons</span>
+                </a>
                 <a href="#factures" class="topnav-item" id="nav-factures">
                     <i class="fa-solid fa-file-invoice-dollar"></i>
                     <span>Factures</span>
@@ -356,6 +360,57 @@
                     </div>
                 </section>
 
+                <!-- 6. ONGLET : LIVRAISONS -->
+                <section id="pane-livraisons" class="tab-pane">
+                    <div class="page-header">
+                        <div class="page-header-left">
+                            <h1><i class="fa-solid fa-truck"></i> Bons de Livraison</h1>
+                            <p>Gestion des livraisons : saisie des quantités, validation et suivi.</p>
+                        </div>
+                    </div>
+
+                    <!-- KPI Livraisons -->
+                    <div class="kpi-grid facture-kpis">
+                        <div class="kpi-card kpi-card-flat">
+                            <div class="kpi-icon-wrap ca"><i class="fa-solid fa-truck"></i></div>
+                            <div class="kpi-body">
+                                <div class="kpi-label">TOTAL LIVRAISONS</div>
+                                <div class="kpi-value" id="kpi-liv-total">0</div>
+                                <div class="kpi-sub">Bons de livraison</div>
+                            </div>
+                        </div>
+                        <div class="kpi-card kpi-card-flat">
+                            <div class="kpi-icon-wrap commandes"><i class="fa-solid fa-clock"></i></div>
+                            <div class="kpi-body">
+                                <div class="kpi-label">EN ATTENTE</div>
+                                <div class="kpi-value" id="kpi-liv-attente">0</div>
+                                <div class="kpi-sub">À traiter</div>
+                            </div>
+                        </div>
+                        <div class="kpi-card kpi-card-flat">
+                            <div class="kpi-icon-wrap clients"><i class="fa-solid fa-circle-check"></i></div>
+                            <div class="kpi-body">
+                                <div class="kpi-label">LIVRÉES</div>
+                                <div class="kpi-value" id="kpi-liv-livrees">0</div>
+                                <div class="kpi-sub">Complètes</div>
+                            </div>
+                        </div>
+                        <div class="kpi-card kpi-card-flat">
+                            <div class="kpi-icon-wrap impayes"><i class="fa-solid fa-circle-half-stroke"></i></div>
+                            <div class="kpi-body">
+                                <div class="kpi-label">PARTIELLES</div>
+                                <div class="kpi-value" id="kpi-liv-partielles">0</div>
+                                <div class="kpi-sub">Livraison en 2 fois</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Grid Livraisons -->
+                    <div class="grid-wrapper">
+                        <div id="grid-livraisons" class="devextreme-grid"></div>
+                    </div>
+                </section>
+
             </div>
         </main>
     </div>
@@ -370,6 +425,8 @@
     <div id="popup-detail-commande"></div>
     <div id="popup-ajout-stock"></div>
     <div id="popup-categorie"></div>
+    <div id="popup-detail-livraison"></div>
+    <div id="popup-saisir-qte"></div>
 
     <!-- Notification Toast -->
     <div id="dx-toast"></div>

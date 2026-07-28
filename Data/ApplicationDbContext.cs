@@ -20,6 +20,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<CommandeLigne> CommandeLignes => Set<CommandeLigne>();
     public DbSet<Facture> Factures => Set<Facture>();
     public DbSet<User> Users => Set<User>();
+    public DbSet<Livraison> Livraisons => Set<Livraison>();
+    public DbSet<LivraisonLigne> LivraisonLignes => Set<LivraisonLigne>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -139,5 +141,39 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<Facture>()
             .Property(f => f.Statut)
             .HasConversion(new EnumToStringConverter<FactureStatut>());
+
+        //----------------------------------------------------
+        // Commande -> Livraisons (1-many)
+        //----------------------------------------------------
+        modelBuilder.Entity<Commande>()
+            .HasMany(c => c.Livraisons)
+            .WithOne(l => l.Commande)
+            .HasForeignKey(l => l.Id_Commande)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        //----------------------------------------------------
+        // Livraison -> LivraisonLignes
+        //----------------------------------------------------
+        modelBuilder.Entity<Livraison>()
+            .HasMany(l => l.Lignes)
+            .WithOne(ll => ll.Livraison)
+            .HasForeignKey(ll => ll.Id_Livraison)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        //----------------------------------------------------
+        // Produit -> LivraisonLigne
+        //----------------------------------------------------
+        modelBuilder.Entity<LivraisonLigne>()
+            .HasOne(ll => ll.Produit)
+            .WithMany(p => p.LivraisonLignes)
+            .HasForeignKey(ll => ll.Id_Produit)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        //----------------------------------------------------
+        // LivraisonStatut enum -> string
+        //----------------------------------------------------
+        modelBuilder.Entity<Livraison>()
+            .Property(l => l.Statut)
+            .HasConversion(new EnumToStringConverter<LivraisonStatut>());
     }
 }
