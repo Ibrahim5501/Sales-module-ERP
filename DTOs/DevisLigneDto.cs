@@ -15,6 +15,8 @@ namespace example2.DTOs
 
         public decimal Remise { get; set; }
 
+        public string TypeRemise { get; set; } = "Pourcentage";
+
         public decimal MontantHT { get; set; }
 
         public decimal MontantTTC { get; set; }

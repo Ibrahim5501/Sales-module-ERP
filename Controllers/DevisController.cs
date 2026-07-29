@@ -39,6 +39,7 @@ namespace example2.Controllers
                 .Include(d => d.Lignes)
                     .ThenInclude(l => l.Produit)
                 .Include(d => d.Partenaire)
+                .Include(d => d.User)
                 .OrderByDescending(d => d.DateDevis)
                 .ToListAsync();
             return Ok(list.Select(MapToDto));
@@ -52,6 +53,7 @@ namespace example2.Controllers
                 .Include(d => d.Lignes)
                     .ThenInclude(l => l.Produit)
                 .Include(d => d.Partenaire)
+                .Include(d => d.User)
                 .FirstOrDefaultAsync(d => d.Id_Devis == id);
 
             if (devis == null)
@@ -68,11 +70,32 @@ namespace example2.Controllers
 
             var now = DateTime.Now;
 
+            // Extract creator user from token
+            int? currentUserId = null;
+            var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (int.TryParse(userIdClaim, out int uid))
+            {
+                currentUserId = uid;
+            }
+            else
+            {
+                var userEmail = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
+                if (!string.IsNullOrEmpty(userEmail))
+                {
+                    var u = await _context.Users.FirstOrDefaultAsync(x => x.Email == userEmail);
+                    if (u != null) currentUserId = u.Id;
+                }
+            }
+
             var devis = new Devis
             {
                 Id_Partenaire = dto.Id_Partenaire,
                 AdresseFacturation = dto.AdresseFacturation,
                 AdresseLivraison = dto.AdresseLivraison,
+                ModePaiement = dto.ModePaiement ?? "Virement Bancaire",
+                RemiseGlobale = dto.RemiseGlobale,
+                TypeRemiseGlobale = string.IsNullOrEmpty(dto.TypeRemiseGlobale) ? "Pourcentage" : dto.TypeRemiseGlobale,
+                Id_User = currentUserId,
                 DateDevis = now,
                 DateValidite = dto.DateValidite,
                 Statut = DevisStatut.Brouillon,
@@ -83,36 +106,22 @@ namespace example2.Controllers
                     PrixUniversitaire = l.PrixUniversitaire,
                     TauxTVA = l.TauxTVA,
                     Remise = l.Remise,
+                    TypeRemise = string.IsNullOrEmpty(l.TypeRemise) ? "Pourcentage" : l.TypeRemise,
                     Id_Produit = l.Id_Produit
                 }).ToList()
             };
 
-            decimal totalHT = 0;
-            decimal totalTTC = 0;
-
-            foreach (var ligne in devis.Lignes)
-            {
-                decimal remise = ligne.PrixUniversitaire * (ligne.Remise / 100m);
-                ligne.MontantHT = (ligne.PrixUniversitaire - remise) * ligne.Quantite;
-                ligne.MontantTTC = ligne.MontantHT * (1 + ligne.TauxTVA / 100m);
-                totalHT += ligne.MontantHT;
-                totalTTC += ligne.MontantTTC;
-            }
-
-            devis.MontantHT = totalHT;
-            devis.MontantTTC = totalTTC;
-            devis.MontantTVA = totalTTC - totalHT;
+            CalculateDevisTotals(devis);
 
             int next = (_context.Devis.Max(d => (int?)d.Id_Devis) ?? 0) + 1;
-
             devis.NumeroDevis = $"DEV-{now.Year}-{next:D3}";
 
             _context.Devis.Add(devis);
             await _context.SaveChangesAsync();
-            devis.Partenaire = await _context.Partenaires.FirstOrDefaultAsync(p => p.Id_Partenaire == devis.Id_Partenaire);
 
             devis = await _context.Devis
                 .Include(d => d.Partenaire)
+                .Include(d => d.User)
                 .Include(d => d.Lignes)
                     .ThenInclude(l => l.Produit)
                 .FirstAsync(d => d.Id_Devis == devis.Id_Devis);
@@ -129,6 +138,7 @@ namespace example2.Controllers
             var existing = await _context.Devis
                 .Include(d => d.Lignes)
                     .ThenInclude(l => l.Produit)
+                .Include(d => d.User)
                 .FirstOrDefaultAsync(d => d.Id_Devis == id);
 
             if (existing == null)
@@ -138,6 +148,12 @@ namespace example2.Controllers
                 return BadRequest(new { message = "Seuls les devis en brouillon peuvent être modifiés." });
 
             existing.Id_Partenaire = dto.Id_Partenaire;
+            existing.AdresseFacturation = dto.AdresseFacturation;
+            existing.AdresseLivraison = dto.AdresseLivraison;
+            existing.DateValidite = dto.DateValidite;
+            existing.ModePaiement = dto.ModePaiement ?? existing.ModePaiement;
+            existing.RemiseGlobale = dto.RemiseGlobale;
+            existing.TypeRemiseGlobale = string.IsNullOrEmpty(dto.TypeRemiseGlobale) ? "Pourcentage" : dto.TypeRemiseGlobale;
 
             _context.DevisLignes.RemoveRange(existing.Lignes);
 
@@ -148,24 +164,11 @@ namespace example2.Controllers
                 PrixUniversitaire = l.PrixUniversitaire,
                 TauxTVA = l.TauxTVA,
                 Remise = l.Remise,
+                TypeRemise = string.IsNullOrEmpty(l.TypeRemise) ? "Pourcentage" : l.TypeRemise,
                 Id_Produit = l.Id_Produit
             }).ToList();
 
-            decimal totalHT = 0;
-            decimal totalTTC = 0;
-
-            foreach (var ligne in existing.Lignes)
-            {
-                decimal remise = ligne.PrixUniversitaire * (ligne.Remise / 100m);
-                ligne.MontantHT = (ligne.PrixUniversitaire - remise) * ligne.Quantite;
-                ligne.MontantTTC = ligne.MontantHT * (1 + ligne.TauxTVA / 100m);
-                totalHT += ligne.MontantHT;
-                totalTTC += ligne.MontantTTC;
-            }
-
-            existing.MontantHT = totalHT;
-            existing.MontantTTC = totalTTC;
-            existing.MontantTVA = totalTTC - totalHT;
+            CalculateDevisTotals(existing);
 
             await _context.SaveChangesAsync();
             existing.Partenaire = await _context.Partenaires.FirstOrDefaultAsync(p => p.Id_Partenaire == existing.Id_Partenaire);
@@ -387,6 +390,51 @@ namespace example2.Controllers
             });
         }
 
+        private static void CalculateDevisTotals(Devis devis)
+        {
+            decimal subtotalHT = 0;
+            decimal totalTVA = 0;
+
+            foreach (var ligne in devis.Lignes)
+            {
+                decimal montantRemiseLigne = 0;
+                if (ligne.TypeRemise == "MontantFixe")
+                {
+                    montantRemiseLigne = ligne.Remise;
+                }
+                else
+                {
+                    montantRemiseLigne = (ligne.PrixUniversitaire * ligne.Quantite) * (ligne.Remise / 100m);
+                }
+
+                ligne.MontantHT = (ligne.PrixUniversitaire * ligne.Quantite) - montantRemiseLigne;
+                if (ligne.MontantHT < 0) ligne.MontantHT = 0;
+
+                decimal tvaLigne = ligne.MontantHT * (ligne.TauxTVA / 100m);
+                ligne.MontantTTC = ligne.MontantHT + tvaLigne;
+
+                subtotalHT += ligne.MontantHT;
+                totalTVA += tvaLigne;
+            }
+
+            decimal remiseGlobaleMontant = 0;
+            if (devis.TypeRemiseGlobale == "MontantFixe")
+            {
+                remiseGlobaleMontant = devis.RemiseGlobale;
+            }
+            else
+            {
+                remiseGlobaleMontant = subtotalHT * (devis.RemiseGlobale / 100m);
+            }
+
+            devis.MontantHT = subtotalHT - remiseGlobaleMontant;
+            if (devis.MontantHT < 0) devis.MontantHT = 0;
+
+            decimal ratio = subtotalHT > 0 ? (devis.MontantHT / subtotalHT) : 1m;
+            devis.MontantTVA = totalTVA * ratio;
+            devis.MontantTTC = devis.MontantHT + devis.MontantTVA;
+        }
+
         private static DevisDto MapToDto(Devis d)
         {
             return new DevisDto
@@ -397,12 +445,17 @@ namespace example2.Controllers
                 NomPartenaire = d.Partenaire != null ? $"{d.Partenaire.Nom} ({d.Partenaire.Entreprise})" : $"Partenaire #{d.Id_Partenaire}",
                 AdresseFacturation = d.AdresseFacturation,
                 AdresseLivraison = d.AdresseLivraison,
+                ModePaiement = d.ModePaiement ?? "Virement Bancaire",
+                RemiseGlobale = d.RemiseGlobale,
+                TypeRemiseGlobale = string.IsNullOrEmpty(d.TypeRemiseGlobale) ? "Pourcentage" : d.TypeRemiseGlobale,
                 DateDevis = d.DateDevis,
                 DateValidite = d.DateValidite,
                 Statut = d.Statut,
                 MontantHT = d.MontantHT,
                 MontantTTC = d.MontantTTC,
                 MontantTVA = d.MontantTVA,
+                Id_User = d.Id_User,
+                CreatedByEmail = d.User?.Email ?? "N/A",
                 Lignes = d.Lignes.Select(l => new DevisLigneDto
                 {
                     Id_DevisLigne = l.Id_DevisLigne,
@@ -411,10 +464,11 @@ namespace example2.Controllers
                     PrixUniversitaire = l.PrixUniversitaire,
                     TauxTVA = l.TauxTVA,
                     Remise = l.Remise,
+                    TypeRemise = string.IsNullOrEmpty(l.TypeRemise) ? "Pourcentage" : l.TypeRemise,
                     MontantHT = l.MontantHT,
                     MontantTTC = l.MontantTTC,
                     Id_Produit = l.Id_Produit,
-                    Designation = l.Produit.Designation ?? "Produit",
+                    Designation = l.Produit?.Designation ?? "Produit",
                 }).ToList()
             };
         }

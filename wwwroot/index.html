@@ -102,6 +102,10 @@
                     <i class="fa-solid fa-boxes-stacked"></i>
                     <span>Articles</span>
                 </a>
+                <a href="#settings" class="topnav-item" id="nav-settings">
+                    <i class="fa-solid fa-gear"></i>
+                    <span>Paramètres PDF</span>
+                </a>
             </nav>
 
             <!-- Actions droite -->
@@ -411,6 +415,70 @@
                     </div>
                 </section>
 
+                <!-- 7. ONGLET : PARAMÈTRES PDF & ENTREPRISE -->
+                <section id="pane-settings" class="tab-pane">
+                    <div class="page-header">
+                        <div class="page-header-left">
+                            <h1><i class="fa-solid fa-gear"></i> Paramètres PDF & Configuration Entreprise</h1>
+                            <p>Personnalisez le nom de l'entreprise, l'adresse, le matricule fiscal et le logo imprimé sur les devis et factures PDF.</p>
+                        </div>
+                        <div class="page-header-right">
+                            <button class="btn btn-primary" id="btn-save-settings">
+                                <i class="fa-solid fa-floppy-disk"></i> Enregistrer les modifications
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="settings-container" style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; background: #fff; padding: 24px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+                        <form id="form-settings" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                            <div class="input-group" style="grid-column: span 2;">
+                                <label for="settings-nom"><i class="fa-solid fa-building"></i> Nom de l'entreprise</label>
+                                <input type="text" id="settings-nom" placeholder="ex: DIGI ERP SARL" class="dx-texteditor-input" style="width:100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px;">
+                            </div>
+                            <div class="input-group" style="grid-column: span 2;">
+                                <label for="settings-activite"><i class="fa-solid fa-briefcase"></i> Activité / Sous-titre</label>
+                                <input type="text" id="settings-activite" placeholder="ex: Module de Ventes & Distribution" class="dx-texteditor-input" style="width:100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px;">
+                            </div>
+                            <div class="input-group" style="grid-column: span 2;">
+                                <label for="settings-adresse"><i class="fa-solid fa-location-dot"></i> Adresse Siège Social</label>
+                                <input type="text" id="settings-adresse" placeholder="ex: Avenue Habib Bourguiba, Tunis" class="dx-texteditor-input" style="width:100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px;">
+                            </div>
+                            <div class="input-group">
+                                <label for="settings-tel"><i class="fa-solid fa-phone"></i> Téléphone</label>
+                                <input type="text" id="settings-tel" placeholder="ex: +216 71 000 000" class="dx-texteditor-input" style="width:100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px;">
+                            </div>
+                            <div class="input-group">
+                                <label for="settings-email"><i class="fa-solid fa-envelope"></i> Email de contact</label>
+                                <input type="email" id="settings-email" placeholder="ex: contact@digierp.tn" class="dx-texteditor-input" style="width:100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px;">
+                            </div>
+                            <div class="input-group">
+                                <label for="settings-mf"><i class="fa-solid fa-id-card"></i> Matricule Fiscal (MF)</label>
+                                <input type="text" id="settings-mf" placeholder="ex: 1234567/A/M/000" class="dx-texteditor-input" style="width:100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px;">
+                            </div>
+                            <div class="input-group">
+                                <label for="settings-rib"><i class="fa-solid fa-landmark"></i> RIB / IBAN Bancaire</label>
+                                <input type="text" id="settings-rib" placeholder="ex: 01 234 567890123456789 01" class="dx-texteditor-input" style="width:100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px;">
+                            </div>
+                            <div class="input-group" style="grid-column: span 2;">
+                                <label for="settings-footer"><i class="fa-solid fa-comment-dots"></i> Mentions Légales / Pied de Page PDF</label>
+                                <input type="text" id="settings-footer" placeholder="ex: DIGI ERP - Document généré automatiquement" class="dx-texteditor-input" style="width:100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px;">
+                            </div>
+                        </form>
+
+                        <div class="logo-upload-card" style="border-left: 1px solid #e2e8f0; padding-left: 20px; display: flex; flex-direction: column; align-items: center;">
+                            <h4 style="margin-bottom: 15px; color: #1e293b;"><i class="fa-solid fa-image"></i> Logo de l'entreprise</h4>
+                            <div id="logo-preview-container" style="width: 180px; height: 120px; border: 2px dashed #cbd5e1; border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden; background: #f8fafc; margin-bottom: 15px;">
+                                <img id="settings-logo-preview" src="" alt="Aperçu Logo" style="max-width: 100%; max-height: 100%; display: none;">
+                                <span id="logo-placeholder-text" style="color: #94a3b8; font-size: 13px; text-align: center;">Aucun logo téléversé</span>
+                            </div>
+                            <input type="file" id="settings-logo-file" accept="image/*" style="display: none;">
+                            <button type="button" class="btn" id="btn-select-logo" style="background: #e2e8f0; color: #334155; width: 100%; margin-bottom: 10px;">
+                                <i class="fa-solid fa-upload"></i> Choisir un fichier
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
             </div>
         </main>
     </div>
@@ -432,6 +500,18 @@
     <div id="dx-toast"></div>
 
     <!-- Fichiers JS de l'Application -->
+    <!-- 1. Utilitaires partagés, auth, navigation, formatters -->
+    <script src="js/common.js"></script>
+    <!-- 2. Modules métier (ordre alphabétique, sans dépendances croisées) -->
+    <script src="js/dashboard.js"></script>
+    <script src="js/commandes.js"></script>
+    <script src="js/factures.js"></script>
+    <script src="js/clients.js"></script>
+    <script src="js/articles.js"></script>
+    <script src="js/devis.js"></script>
+    <script src="js/livraisons.js"></script>
+    <script src="js/settings.js"></script>
+    <!-- 3. Bootstrap principal (document.ready) -->
     <script src="js/app.js"></script>
 </body>
 </html>

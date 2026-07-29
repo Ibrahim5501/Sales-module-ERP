@@ -22,13 +22,14 @@ public class ApplicationDbContext : DbContext
     public DbSet<User> Users => Set<User>();
     public DbSet<Livraison> Livraisons => Set<Livraison>();
     public DbSet<LivraisonLigne> LivraisonLignes => Set<LivraisonLigne>();
+    public DbSet<CompanySettings> CompanySettings => Set<CompanySettings>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
         //----------------------------------------------------
-        // Decimal precision
+        // Decimal precision (3 decimal places for TND)
         //----------------------------------------------------
         foreach (var property in modelBuilder.Model
             .GetEntityTypes()
@@ -37,8 +38,17 @@ public class ApplicationDbContext : DbContext
                      || p.ClrType == typeof(decimal?)))
         {
             property.SetPrecision(18);
-            property.SetScale(2);
+            property.SetScale(3);
         }
+
+        //----------------------------------------------------
+        // User -> Devis
+        //----------------------------------------------------
+        modelBuilder.Entity<Devis>()
+            .HasOne(d => d.User)
+            .WithMany()
+            .HasForeignKey(d => d.Id_User)
+            .OnDelete(DeleteBehavior.SetNull);
 
         //----------------------------------------------------
         // Partenaire -> Devis
@@ -141,6 +151,10 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<Facture>()
             .Property(f => f.Statut)
             .HasConversion(new EnumToStringConverter<FactureStatut>());
+
+        // MontantRestant is a C# computed property, not a DB column
+        modelBuilder.Entity<Facture>()
+            .Ignore(f => f.MontantRestant);
 
         //----------------------------------------------------
         // Commande -> Livraisons (1-many)

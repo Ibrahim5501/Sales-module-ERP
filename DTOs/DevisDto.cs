@@ -11,9 +11,15 @@ namespace example2.DTOs
 
         public DateTime DateValidite { get; set; } = DateTime.Now.AddDays(30);
 
-        public string AdresseLivraison { get; set; } = string.Empty;
+        public string? AdresseLivraison { get; set; } = string.Empty;
 
-        public string AdresseFacturation { get; set; } = string.Empty;
+        public string? AdresseFacturation { get; set; } = string.Empty;
+
+        public string? ModePaiement { get; set; } = "Virement Bancaire";
+
+        public decimal RemiseGlobale { get; set; } = 0;
+
+        public string TypeRemiseGlobale { get; set; } = "Pourcentage";
 
         public List<DevisLigneCreateDto> Lignes { get; set; } = new();
     }
@@ -33,7 +39,7 @@ namespace example2.DTOs
     {
         public int Id_Devis { get; set; }
 
-        public string NumeroDevis { get; set; }
+        public string? NumeroDevis { get; set; }
 
         public DateTime DateDevis { get; set; }
 
@@ -50,6 +56,10 @@ namespace example2.DTOs
         public int Id_Partenaire { get; set; }
         
         public string? NomPartenaire { get; set; }
+
+        public int? Id_User { get; set; }
+
+        public string? CreatedByEmail { get; set; }
 
         public List<DevisLigneDto> Lignes { get; set; } = new();
     }

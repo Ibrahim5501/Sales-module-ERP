@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace example2.Models
 {
@@ -7,7 +7,7 @@ namespace example2.Models
         [Key]
         public int Id_Devis { get; set; }
 
-        public string NumeroDevis { get; set; }
+        public string NumeroDevis { get; set; } = string.Empty;
 
         public DateTime DateDevis { get; set; } = DateTime.Now;
         public DateTime DateValidite { get; set; } = DateTime.Now.AddDays(30);
@@ -23,6 +23,16 @@ namespace example2.Models
         public decimal MontantTVA { get; set; }
 
         public decimal MontantTTC { get; set; }
+
+        public string? ModePaiement { get; set; } = "Virement Bancaire";
+
+        public decimal RemiseGlobale { get; set; } = 0;
+
+        public string TypeRemiseGlobale { get; set; } = "Pourcentage";
+
+        public int? Id_User { get; set; }
+
+        public User? User { get; set; }
 
         // Navigation
         public int Id_Partenaire { get; set; }

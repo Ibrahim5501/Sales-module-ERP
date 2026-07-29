@@ -1,6 +1,9 @@
 using System;
 using System.IO;
+using System.Linq;
+using example2.Data;
 using example2.Models;
+using Microsoft.AspNetCore.Hosting;
 using PdfSharpCore.Drawing;
 using PdfSharpCore.Pdf;
 
@@ -8,8 +11,31 @@ namespace example2.Services
 {
     public class PdfService : IPdfService
     {
+        private readonly ApplicationDbContext _context;
+        private readonly IWebHostEnvironment _env;
+
+        public PdfService(ApplicationDbContext context, IWebHostEnvironment env)
+        {
+            _context = context;
+            _env = env;
+        }
+
+        private CompanySettings GetCompanySettings()
+        {
+            try
+            {
+                return _context.CompanySettings.FirstOrDefault() ?? new CompanySettings();
+            }
+            catch
+            {
+                return new CompanySettings();
+            }
+        }
+
         public byte[] GenerateDevisPdf(Devis devis)
         {
+            var company = GetCompanySettings();
+
             using var stream = new MemoryStream();
             var document = new PdfDocument();
             document.Info.Title = $"Devis {devis.NumeroDevis}";
@@ -35,25 +61,57 @@ namespace example2.Services
             double margin = 40;
             double pageWidth = page.Width.Point - (margin * 2);
 
-            // --- HEADER ---
-            gfx.DrawString("DIGI ERP", new XFont("Arial", 22, XFontStyle.Bold), new XSolidBrush(accentColor), margin, yPos);
+            // --- LOGO & HEADER ---
+            double headerHeight = 60;
+            bool logoDrawn = false;
+            if (!string.IsNullOrEmpty(company.LogoUrl))
+            {
+                try
+                {
+                    string relativePath = company.LogoUrl.TrimStart('/', '\\');
+                    string fullLogoPath = Path.Combine(_env.WebRootPath, relativePath);
+                    if (File.Exists(fullLogoPath))
+                    {
+                        using var logoImage = XImage.FromFile(fullLogoPath);
+                        gfx.DrawImage(logoImage, margin, yPos - 10, 120, 50);
+                        logoDrawn = true;
+                    }
+                }
+                catch { }
+            }
+
+            if (!logoDrawn)
+            {
+                gfx.DrawString(company.NomEntreprise, new XFont("Arial", 20, XFontStyle.Bold), new XSolidBrush(accentColor), margin, yPos + 10);
+            }
+
+            // Right header title
             gfx.DrawString("DEVIS", fontTitle, new XSolidBrush(primaryColor), page.Width.Point - margin - 80, yPos);
-            yPos += 25;
+            gfx.DrawString($"N°: {devis.NumeroDevis ?? $"DEV-{devis.Id_Devis}"}", fontHeader, new XSolidBrush(textColor), page.Width.Point - margin - 130, yPos + 22);
 
-            gfx.DrawString("Module de Ventes & Distribution", fontSmall, new XSolidBrush(textColor), margin, yPos);
-            gfx.DrawString($"N°: {devis.NumeroDevis ?? $"DEV-{devis.Id_Devis}"}", fontHeader, new XSolidBrush(textColor), page.Width.Point - margin - 120, yPos);
             yPos += 30;
+            if (logoDrawn)
+            {
+                gfx.DrawString(company.NomEntreprise, fontHeader, new XSolidBrush(primaryColor), margin, yPos);
+                yPos += 14;
+            }
+            if (!string.IsNullOrEmpty(company.Activite))
+            {
+                gfx.DrawString(company.Activite, fontSmall, new XSolidBrush(textColor), margin, yPos);
+                yPos += 14;
+            }
 
+            yPos += 10;
             // Line separator
             gfx.DrawLine(new XPen(accentColor, 2), margin, yPos, page.Width.Point - margin, yPos);
-            yPos += 20;
+            yPos += 15;
 
             // --- METADATA & CLIENT INFO BOX ---
             double boxWidth = (pageWidth - 20) / 2;
             
             // Left Box: Devis Info
-            gfx.DrawRectangle(new XSolidBrush(lightBg), margin, yPos, boxWidth, 80);
-            gfx.DrawRectangle(new XPen(XColor.FromArgb(226, 232, 240)), margin, yPos, boxWidth, 80);
+            gfx.DrawRectangle(new XSolidBrush(lightBg), margin, yPos, boxWidth, 90);
+            gfx.DrawRectangle(new XPen(XColor.FromArgb(226, 232, 240)), margin, yPos, boxWidth, 90);
             
             double boxY = yPos + 15;
             gfx.DrawString("INFORMATIONS DEVIS", fontHeader, new XSolidBrush(primaryColor), margin + 10, boxY);
@@ -63,11 +121,13 @@ namespace example2.Services
             gfx.DrawString($"Validité jusqu'au: {devis.DateValidite:dd/MM/yyyy}", fontBody, new XSolidBrush(textColor), margin + 10, boxY);
             boxY += 14;
             gfx.DrawString($"Statut: {devis.Statut}", fontBody, new XSolidBrush(textColor), margin + 10, boxY);
+            boxY += 14;
+            gfx.DrawString($"Mode de paiement: {devis.ModePaiement ?? "Virement Bancaire"}", fontBody, new XSolidBrush(textColor), margin + 10, boxY);
 
             // Right Box: Client Info
             double rightBoxX = margin + boxWidth + 20;
-            gfx.DrawRectangle(new XSolidBrush(lightBg), rightBoxX, yPos, boxWidth, 80);
-            gfx.DrawRectangle(new XPen(XColor.FromArgb(226, 232, 240)), rightBoxX, yPos, boxWidth, 80);
+            gfx.DrawRectangle(new XSolidBrush(lightBg), rightBoxX, yPos, boxWidth, 90);
+            gfx.DrawRectangle(new XPen(XColor.FromArgb(226, 232, 240)), rightBoxX, yPos, boxWidth, 90);
             
             boxY = yPos + 15;
             gfx.DrawString("CLIENT", fontHeader, new XSolidBrush(primaryColor), rightBoxX + 10, boxY);
@@ -78,18 +138,20 @@ namespace example2.Services
             gfx.DrawString($"Email: {devis.Partenaire?.Email ?? "N/A"}", fontBody, new XSolidBrush(textColor), rightBoxX + 10, boxY);
             boxY += 14;
             gfx.DrawString($"Tél: {devis.Partenaire?.Telephone ?? "N/A"}", fontBody, new XSolidBrush(textColor), rightBoxX + 10, boxY);
+            boxY += 14;
+            gfx.DrawString($"Adresse: {Truncate(devis.AdresseFacturation ?? devis.Partenaire?.Adresse ?? "N/A", 30)}", fontBody, new XSolidBrush(textColor), rightBoxX + 10, boxY);
 
-            yPos += 100;
+            yPos += 105;
 
             // --- TABLE HEADERS ---
             gfx.DrawRectangle(new XSolidBrush(primaryColor), margin, yPos, pageWidth, 22);
             
             double xDesc = margin + 10;
-            double xQte = margin + 220;
-            double xPrix = margin + 270;
+            double xQte = margin + 200;
+            double xPrix = margin + 250;
             double xRem = margin + 340;
-            double xTva = margin + 390;
-            double xTotal = margin + 440;
+            double xTva = margin + 400;
+            double xTotal = margin + 450;
 
             gfx.DrawString("Désignation / Description", fontHeader, XBrushes.White, xDesc, yPos + 15);
             gfx.DrawString("Qté", fontHeader, XBrushes.White, xQte, yPos + 15);
@@ -102,6 +164,8 @@ namespace example2.Services
 
             // --- TABLE ROWS ---
             bool alt = false;
+            decimal subtotalHTLines = 0;
+
             foreach (var ligne in devis.Lignes)
             {
                 if (alt)
@@ -113,45 +177,94 @@ namespace example2.Services
                     ? ligne.Description 
                     : (ligne.Produit?.Designation ?? "Produit");
 
-                gfx.DrawString(Truncate(desc, 38), fontBody, new XSolidBrush(textColor), xDesc, yPos + 14);
-                gfx.DrawString(ligne.Quantite.ToString("0.##"), fontBody, new XSolidBrush(textColor), xQte, yPos + 14);
-                gfx.DrawString(ligne.PrixUniversitaire.ToString("N2"), fontBody, new XSolidBrush(textColor), xPrix, yPos + 14);
-                gfx.DrawString($"{ligne.Remise:0}%", fontBody, new XSolidBrush(textColor), xRem, yPos + 14);
-                gfx.DrawString($"{ligne.TauxTVA:0}%", fontBody, new XSolidBrush(textColor), xTva, yPos + 14);
-                gfx.DrawString($"{ligne.MontantHT:N2} TND", fontBold, new XSolidBrush(textColor), xTotal, yPos + 14);
+                string remStr = ligne.TypeRemise == "MontantFixe" 
+                    ? $"{ligne.Remise:N3} DT" 
+                    : $"{ligne.Remise:0.##}%";
 
+                gfx.DrawString(Truncate(desc, 34), fontBody, new XSolidBrush(textColor), xDesc, yPos + 14);
+                gfx.DrawString(ligne.Quantite.ToString("0.##"), fontBody, new XSolidBrush(textColor), xQte, yPos + 14);
+                gfx.DrawString(ligne.PrixUniversitaire.ToString("N3"), fontBody, new XSolidBrush(textColor), xPrix, yPos + 14);
+                gfx.DrawString(remStr, fontBody, new XSolidBrush(textColor), xRem, yPos + 14);
+                gfx.DrawString($"{ligne.TauxTVA:0}%", fontBody, new XSolidBrush(textColor), xTva, yPos + 14);
+                gfx.DrawString($"{ligne.MontantHT:N3} TND", fontBold, new XSolidBrush(textColor), xTotal, yPos + 14);
+
+                subtotalHTLines += ligne.MontantHT;
                 yPos += 20;
                 alt = !alt;
             }
 
             gfx.DrawLine(new XPen(XColor.FromArgb(203, 213, 225), 1), margin, yPos, page.Width.Point - margin, yPos);
-            yPos += 20;
+            yPos += 15;
 
             // --- TOTALS BOX ---
-            double totalsWidth = 200;
+            double totalsWidth = 230;
             double totalsX = page.Width.Point - margin - totalsWidth;
+            bool hasGlobalRemise = devis.RemiseGlobale > 0;
+            double totalsBoxHeight = hasGlobalRemise ? 95 : 75;
 
-            gfx.DrawRectangle(new XSolidBrush(lightBg), totalsX, yPos, totalsWidth, 75);
-            gfx.DrawRectangle(new XPen(XColor.FromArgb(226, 232, 240)), totalsX, yPos, totalsWidth, 75);
+            gfx.DrawRectangle(new XSolidBrush(lightBg), totalsX, yPos, totalsWidth, totalsBoxHeight);
+            gfx.DrawRectangle(new XPen(XColor.FromArgb(226, 232, 240)), totalsX, yPos, totalsWidth, totalsBoxHeight);
 
-            double tY = yPos + 18;
-            gfx.DrawString("Total HT:", fontBody, new XSolidBrush(textColor), totalsX + 15, tY);
-            gfx.DrawString($"{devis.MontantHT:N2} TND", fontBold, new XSolidBrush(textColor), totalsX + 110, tY);
+            double tY = yPos + 16;
+            if (hasGlobalRemise)
+            {
+                gfx.DrawString("Sous-Total HT:", fontBody, new XSolidBrush(textColor), totalsX + 10, tY);
+                gfx.DrawString($"{subtotalHTLines:N3} TND", fontBold, new XSolidBrush(textColor), totalsX + 125, tY);
+                tY += 16;
 
-            tY += 18;
-            gfx.DrawString("Total TVA:", fontBody, new XSolidBrush(textColor), totalsX + 15, tY);
-            gfx.DrawString($"{devis.MontantTVA:N2} TND", fontBold, new XSolidBrush(textColor), totalsX + 110, tY);
+                string remGlobaleLabel = devis.TypeRemiseGlobale == "MontantFixe"
+                    ? $"Remise glob. ({devis.RemiseGlobale:N3} DT):"
+                    : $"Remise glob. ({devis.RemiseGlobale:0.##}%):";
+                decimal remiseAmount = subtotalHTLines - devis.MontantHT;
+
+                gfx.DrawString(remGlobaleLabel, fontBody, new XSolidBrush(textColor), totalsX + 10, tY);
+                gfx.DrawString($"-{remiseAmount:N3} TND", fontBold, new XSolidBrush(textColor), totalsX + 125, tY);
+                tY += 16;
+
+                gfx.DrawString("Net HT:", fontBody, new XSolidBrush(textColor), totalsX + 10, tY);
+                gfx.DrawString($"{devis.MontantHT:N3} TND", fontBold, new XSolidBrush(textColor), totalsX + 125, tY);
+                tY += 16;
+            }
+            else
+            {
+                gfx.DrawString("Total HT:", fontBody, new XSolidBrush(textColor), totalsX + 10, tY);
+                gfx.DrawString($"{devis.MontantHT:N3} TND", fontBold, new XSolidBrush(textColor), totalsX + 125, tY);
+                tY += 18;
+            }
+
+            gfx.DrawString("Total TVA:", fontBody, new XSolidBrush(textColor), totalsX + 10, tY);
+            gfx.DrawString($"{devis.MontantTVA:N3} TND", fontBold, new XSolidBrush(textColor), totalsX + 125, tY);
 
             tY += 20;
             gfx.DrawLine(new XPen(accentColor, 1), totalsX + 10, tY - 12, totalsX + totalsWidth - 10, tY - 12);
-            gfx.DrawString("Total TTC:", fontHeader, new XSolidBrush(primaryColor), totalsX + 15, tY);
-            gfx.DrawString($"{devis.MontantTTC:N2} TND", fontTitle, new XSolidBrush(accentColor), totalsX + 100, tY);
+            gfx.DrawString("Total TTC:", fontHeader, new XSolidBrush(primaryColor), totalsX + 10, tY);
+            gfx.DrawString($"{devis.MontantTTC:N3} TND", fontHeader, new XSolidBrush(accentColor), totalsX + 115, tY);
+
+            // --- MONTANT EN MOTS (EN FRANÇAIS) ---
+            double textWordsY = Math.Max(yPos + totalsBoxHeight + 15, yPos + 80);
+            string words = FrenchNumberToWordsConverter.ConvertToFrenchWords(devis.MontantTTC);
+            string phraseWords = $"Arrêté le présent devis à la somme de : {words}.";
+
+            gfx.DrawRectangle(new XSolidBrush(XColor.FromArgb(248, 250, 252)), margin, textWordsY, pageWidth, 28);
+            gfx.DrawRectangle(new XPen(XColor.FromArgb(203, 213, 225)), margin, textWordsY, pageWidth, 28);
+            gfx.DrawString(phraseWords, fontBold, new XSolidBrush(primaryColor), margin + 10, textWordsY + 18);
 
             // --- FOOTER ---
-            double footerY = page.Height.Point - 30;
+            double footerY = page.Height.Point - 35;
             gfx.DrawLine(new XPen(XColor.FromArgb(226, 232, 240), 1), margin, footerY - 10, page.Width.Point - margin, footerY - 10);
-            gfx.DrawString("AURA ERP - Document généré automatiquement", fontSmall, new XSolidBrush(textColor), margin, footerY);
-            gfx.DrawString($"Page 1 sur 1", fontSmall, new XSolidBrush(textColor), page.Width.Point - margin - 50, footerY);
+            
+            string footerText = company.PiedDePage ?? "DIGI ERP - Document généré automatiquement";
+            if (!string.IsNullOrEmpty(company.MatriculeFiscal))
+            {
+                footerText += $" | MF: {company.MatriculeFiscal}";
+            }
+            if (!string.IsNullOrEmpty(company.RIB))
+            {
+                footerText += $" | RIB: {company.RIB}";
+            }
+
+            gfx.DrawString(Truncate(footerText, 110), fontSmall, new XSolidBrush(textColor), margin, footerY);
+            gfx.DrawString("Page 1 sur 1", fontSmall, new XSolidBrush(textColor), page.Width.Point - margin - 50, footerY);
 
             document.Save(stream, false);
             return stream.ToArray();
@@ -159,6 +272,8 @@ namespace example2.Services
 
         public byte[] GenerateCommandePdf(Commande commande)
         {
+            var company = GetCompanySettings();
+
             using var stream = new MemoryStream();
             var document = new PdfDocument();
             document.Info.Title = $"Commande {commande.NumeroCommande}";
@@ -185,11 +300,11 @@ namespace example2.Services
             double pageWidth = page.Width.Point - (margin * 2);
 
             // --- HEADER ---
-            gfx.DrawString("DIGI ERP", new XFont("Arial", 22, XFontStyle.Bold), new XSolidBrush(accentColor), margin, yPos);
+            gfx.DrawString(company.NomEntreprise, new XFont("Arial", 22, XFontStyle.Bold), new XSolidBrush(accentColor), margin, yPos);
             gfx.DrawString("BON DE COMMANDE", fontTitle, new XSolidBrush(primaryColor), page.Width.Point - margin - 170, yPos);
             yPos += 25;
 
-            gfx.DrawString("Module de Ventes & Distribution", fontSmall, new XSolidBrush(textColor), margin, yPos);
+            gfx.DrawString(company.Activite ?? "Module de Ventes & Distribution", fontSmall, new XSolidBrush(textColor), margin, yPos);
             gfx.DrawString($"N°: {commande.NumeroCommande ?? $"CMD-{commande.Id_Commande}"}", fontHeader, new XSolidBrush(textColor), page.Width.Point - margin - 140, yPos);
             yPos += 30;
 
@@ -267,10 +382,10 @@ namespace example2.Services
 
                 gfx.DrawString(Truncate(desc, 38), fontBody, new XSolidBrush(textColor), xDesc, yPos + 14);
                 gfx.DrawString(ligne.Quantite.ToString("0.##"), fontBody, new XSolidBrush(textColor), xQte, yPos + 14);
-                gfx.DrawString(ligne.PrixUniversitaire.ToString("N2"), fontBody, new XSolidBrush(textColor), xPrix, yPos + 14);
+                gfx.DrawString(ligne.PrixUniversitaire.ToString("N3"), fontBody, new XSolidBrush(textColor), xPrix, yPos + 14);
                 gfx.DrawString($"{ligne.Remise:0}%", fontBody, new XSolidBrush(textColor), xRem, yPos + 14);
                 gfx.DrawString($"{ligne.TauxTVA:0}%", fontBody, new XSolidBrush(textColor), xTva, yPos + 14);
-                gfx.DrawString($"{ligne.MontantHT:N2} TND", fontBold, new XSolidBrush(textColor), xTotal, yPos + 14);
+                gfx.DrawString($"{ligne.MontantHT:N3} TND", fontBold, new XSolidBrush(textColor), xTotal, yPos + 14);
 
                 yPos += 20;
                 alt = !alt;
@@ -288,22 +403,22 @@ namespace example2.Services
 
             double tY = yPos + 18;
             gfx.DrawString("Total HT:", fontBody, new XSolidBrush(textColor), totalsX + 15, tY);
-            gfx.DrawString($"{commande.MontantHT:N2} TND", fontBold, new XSolidBrush(textColor), totalsX + 110, tY);
+            gfx.DrawString($"{commande.MontantHT:N3} TND", fontBold, new XSolidBrush(textColor), totalsX + 110, tY);
 
             tY += 18;
             gfx.DrawString("Total TVA:", fontBody, new XSolidBrush(textColor), totalsX + 15, tY);
-            gfx.DrawString($"{commande.MontantTVA:N2} TND", fontBold, new XSolidBrush(textColor), totalsX + 110, tY);
+            gfx.DrawString($"{commande.MontantTVA:N3} TND", fontBold, new XSolidBrush(textColor), totalsX + 110, tY);
 
             tY += 20;
             gfx.DrawLine(new XPen(accentColor, 1), totalsX + 10, tY - 12, totalsX + totalsWidth - 10, tY - 12);
             gfx.DrawString("Total TTC:", fontHeader, new XSolidBrush(primaryColor), totalsX + 15, tY);
-            gfx.DrawString($"{commande.MontantTTC:N2} TND", fontTitle, new XSolidBrush(accentColor), totalsX + 100, tY);
+            gfx.DrawString($"{commande.MontantTTC:N3} TND", fontHeader, new XSolidBrush(accentColor), totalsX + 100, tY);
 
             // --- FOOTER ---
             double footerY = page.Height.Point - 30;
             gfx.DrawLine(new XPen(XColor.FromArgb(226, 232, 240), 1), margin, footerY - 10, page.Width.Point - margin, footerY - 10);
-            gfx.DrawString("AURA ERP - Document généré automatiquement", fontSmall, new XSolidBrush(textColor), margin, footerY);
-            gfx.DrawString($"Page 1 sur 1", fontSmall, new XSolidBrush(textColor), page.Width.Point - margin - 50, footerY);
+            gfx.DrawString(company.PiedDePage ?? "DIGI ERP - Document généré automatiquement", fontSmall, new XSolidBrush(textColor), margin, footerY);
+            gfx.DrawString("Page 1 sur 1", fontSmall, new XSolidBrush(textColor), page.Width.Point - margin - 50, footerY);
 
             document.Save(stream, false);
             return stream.ToArray();
@@ -351,6 +466,8 @@ namespace example2.Services
 
         public byte[] GenerateLivraisonPdf(Livraison livraison)
         {
+            var company = GetCompanySettings();
+
             using var stream = new MemoryStream();
             var document = new PdfDocument();
             document.Info.Title = $"Bon de Livraison {livraison.NumeroLivraison}";
@@ -364,7 +481,6 @@ namespace example2.Services
             var accentColor  = XColor.FromArgb(124, 58, 237);   // Purple
             var textColor    = XColor.FromArgb(51, 65, 85);
             var lightBg      = XColor.FromArgb(245, 243, 255);  // Light purple tint
-            var greenColor   = XColor.FromArgb(16, 185, 129);
 
             // Fonts
             var fontTitle  = new XFont("Arial", 20, XFontStyle.Bold);
@@ -378,11 +494,11 @@ namespace example2.Services
             double pageWidth = page.Width.Point - (margin * 2);
 
             // ---- HEADER ----
-            gfx.DrawString("DIGI ERP", new XFont("Arial", 22, XFontStyle.Bold), new XSolidBrush(accentColor), margin, yPos);
+            gfx.DrawString(company.NomEntreprise, new XFont("Arial", 22, XFontStyle.Bold), new XSolidBrush(accentColor), margin, yPos);
             gfx.DrawString("BON DE LIVRAISON", fontTitle, new XSolidBrush(primaryColor), page.Width.Point - margin - 200, yPos);
             yPos += 25;
 
-            gfx.DrawString("Module de Ventes & Distribution", fontSmall, new XSolidBrush(textColor), margin, yPos);
+            gfx.DrawString(company.Activite ?? "Module de Ventes & Distribution", fontSmall, new XSolidBrush(textColor), margin, yPos);
             gfx.DrawString($"N°: {livraison.NumeroLivraison ?? $"LIV-{livraison.Id_Livraison}"}", fontHeader, new XSolidBrush(textColor), page.Width.Point - margin - 160, yPos);
             yPos += 30;
 
@@ -474,7 +590,7 @@ namespace example2.Services
             // ---- FOOTER ----
             double footerY = page.Height.Point - 30;
             gfx.DrawLine(new XPen(XColor.FromArgb(226, 232, 240), 1), margin, footerY - 10, page.Width.Point - margin, footerY - 10);
-            gfx.DrawString("DIGI ERP - Document généré automatiquement", fontSmall, new XSolidBrush(textColor), margin, footerY);
+            gfx.DrawString(company.PiedDePage ?? "DIGI ERP - Document généré automatiquement", fontSmall, new XSolidBrush(textColor), margin, footerY);
             gfx.DrawString("Page 1 sur 1", fontSmall, new XSolidBrush(textColor), page.Width.Point - margin - 50, footerY);
 
             document.Save(stream, false);

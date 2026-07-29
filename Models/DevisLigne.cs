@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 
 namespace example2.Models
@@ -17,6 +17,8 @@ namespace example2.Models
         public decimal TauxTVA { get; set; }
 
         public decimal Remise { get; set; }
+
+        public string TypeRemise { get; set; } = "Pourcentage";
 
         public decimal MontantHT { get; set; }
 
