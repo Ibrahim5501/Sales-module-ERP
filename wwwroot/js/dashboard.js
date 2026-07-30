@@ -11,9 +11,9 @@ async function chargerDashboard() {
         $("#kpi-impayes").text(formatCurrency(data.indicateurs.montantImpaye));
         $("#kpi-taux-recouvrement").text(`Recouvrement : ${data.indicateurs.tauxRecouvrement}%`);
         
-        // Alerte badges
-        $("#stock-alert-badge").text(data.indicateurs.alertesStock);
-        $("#stock-alert-count").text(`${data.indicateurs.alertesStock} alerte${data.indicateurs.alertesStock > 1 ? 's' : ''}`);
+        // Alertes spots / diffusion
+        $("#stock-alert-badge").text(0);
+        $("#stock-alert-count").text(`Spots en diffusion`);
 
         // Rendre les graphiques DevExtreme
         renderDashboardCharts(data);
@@ -27,7 +27,8 @@ async function chargerDashboard() {
                     caption: "Client",
                     cellTemplate: (container, options) => {
                         $("<strong>").text(options.value).appendTo(container);
-                }},
+                    }
+                },
                 {
                     dataField: "entreprise",
                     caption: "Entreprise"
@@ -46,35 +47,13 @@ async function chargerDashboard() {
             ],
             showBorders: false,
             showColumnHeaders: true,
-            paging: {
-                enabled: false
-            },
-            scrolling: {
-                mode: "none"
-            }
+            paging: { enabled: false },
+            scrolling: { mode: "none" }
         });
 
-        // Alertes stocks
         const alertsContainer = $("#dashboard-stock-alerts");
         alertsContainer.empty();
-        const alertProds = produitsData.filter(p => p.quantiteStock <= 5);
-        if (alertProds.length === 0) {
-            alertsContainer.html(`<div class="text-center text-muted" style="padding:24px;">Tous les stocks sont corrects.</div>`);
-        } else {
-            alertProds.forEach(p => {
-                const enRupture = p.quantiteStock === 0;
-                alertsContainer.append(`
-                    <div class="alert-item ${enRupture ? '' : 'warning'}">
-                        <div class="alert-item-icon"><i class="fa-solid ${enRupture ? 'fa-triangle-exclamation' : 'fa-circle-exclamation'}"></i></div>
-                        <div class="alert-item-details">
-                            <span class="alert-item-title">${p.designation}</span>
-                            <span class="alert-item-meta">SKU: ${p.code} | Categorie: ${p.nomCategorie}</span>
-                        </div>
-                        <span class="alert-stock-badge">${enRupture ? 'RUPTURE' : p.quantiteStock + ' ' + p.unite}</span>
-                    </div>
-                `);
-            });
-        }
+        alertsContainer.html(`<div class="text-center text-muted" style="padding:24px;"><i class="fa-solid fa-signal text-success" style="margin-right:6px;"></i> Tous les spots publicitaires et grilles d'antenne sont actifs.</div>`);
 
     } catch (err) {
         console.error(err);

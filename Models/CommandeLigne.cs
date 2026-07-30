@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 
 namespace example2.Models
@@ -21,6 +21,8 @@ namespace example2.Models
         public decimal MontantHT { get; set; }
 
         public decimal MontantTTC { get; set; }
+
+        public string? Emission { get; set; }
 
         // Navigation
         public int Id_Commande { get; set; }

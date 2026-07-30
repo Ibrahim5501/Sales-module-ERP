@@ -40,8 +40,8 @@ function triggerLogout() {
 }
 
 function updateUserInfoUI() {
-    const userEmail = localStorage.getItem("digi_erp_user_email") || "Administrateur";
-    $(".user-name").text(userEmail);
+    const username = localStorage.getItem("digi_erp_user_name") || "Administrateur";
+    $(".user-name").text(username);
 }
 
 // Variables d'état global

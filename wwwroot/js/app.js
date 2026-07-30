@@ -48,7 +48,7 @@ $(document).ready(() => {
 
             const data = await res.json();
             localStorage.setItem("digi_erp_token", data.token);
-            localStorage.setItem("digi_erp_user_name", data.email);
+            localStorage.setItem("digi_erp_user_name", data.username);
             localStorage.setItem("digi_erp_user_email", data.email);
 
             updateUserInfoUI();
@@ -57,7 +57,7 @@ $(document).ready(() => {
             $("#login-screen").hide();
             $(".app-container").css("display", "flex");
 
-            showToast("Connexion réussie. Bienvenue, " + data.email + " !");
+            showToast("Connexion réussie. Bienvenue, " + data.username + " !");
 
             // Charger les listes de base et le dashboard
             chargerToutesLesDonnees();
@@ -99,6 +99,7 @@ $(document).ready(() => {
     });
 
     // Popup ajout stock
+    /*
     $("#popup-ajout-stock").dxPopup({
         title: "Ajouter du stock",
         width: 350,
@@ -119,6 +120,7 @@ $(document).ready(() => {
             }
         }]
     });
+    */
 
     // Gérer l'état de démarrage de l'authentification
     if (localStorage.getItem("digi_erp_token")) {

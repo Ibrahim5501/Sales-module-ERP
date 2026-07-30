@@ -1,4 +1,4 @@
-// --- MODULE ARTICLES & CATÉGORIES ---
+// --- MODULE ARTICLES (SPOTS PUBLICITAIRES) & CATÉGORIES ---
 
 async function chargerProduits() {
     try {
@@ -14,7 +14,7 @@ async function chargerProduits() {
             searchPanel: {
                 visible: true,
                 width: 260,
-                placeholder: "Rechercher un article..."
+                placeholder: "Rechercher un spot publicitaire..."
             },
             filterRow: {
                 visible: true
@@ -32,25 +32,29 @@ async function chargerProduits() {
             columns: [
                 {
                     dataField: "code",
-                    caption: "Code / SKU",
-                    width: 130,
+                    caption: "Code Spot / SKU",
+                    width: 140,
                     cellTemplate: (container, options) => {
                         $("<strong style='font-family:monospace;'>").text(options.value).appendTo(container);
-                }},
+                    }
+                },
                 {
                     dataField: "designation",
-                    caption: "Désignation"
+                    caption: "Désignation / Nom du Spot"
                 },
                 {
                     dataField: "nomCategorie",
                     caption: "Catégorie",
-                    width: 150
+                    width: 160
                 },
                 {
                     dataField: "unite",
-                    caption: "Unité",
-                    width: 100,
-                    alignment: "center"
+                    caption: "Durée / Unité",
+                    width: 140,
+                    alignment: "center",
+                    cellTemplate: (container, options) => {
+                        $("<span class='badge badge-blue'>").text(options.value || "Secondes").appendTo(container);
+                    }
                 },
                 {
                     dataField: "prixUniversitaire",
@@ -63,26 +67,9 @@ async function chargerProduits() {
                     dataField: "tauxTVA",
                     caption: "TVA (%)",
                     alignment: "center",
-                    width: 100
-                },
-                {
-                    dataField: "quantiteStock",
-                    caption: "Stock",
-                    alignment: "center",
-                    width: 180,
-                    cellTemplate: renderStockProgressBar
-                },
-                {
-                    caption: "Actions",
-                    width: 120,
-                    alignment: "center",
+                    width: 110,
                     cellTemplate: (container, options) => {
-                        $("<div>").dxButton({
-                            icon: "plus",
-                            text: "Stock",
-                            type: "success",
-                            onClick: () => ouvrirPopupAjoutStock(options.data)
-                        }).appendTo(container);
+                        $("<span>").text(`${options.value || 0}%`).appendTo(container);
                     }
                 },
                 {
@@ -103,86 +90,16 @@ async function chargerProduits() {
                                     body: JSON.stringify(e.value)
                                 });
                                 showToast("Statut modifié");
-                        }
-                    }).appendTo(container);
-                }}
+                            }
+                        }).appendTo(container);
+                    }
+                }
             ]
         });
     } catch (err) {
         console.error(err);
-        showToast("Erreur de chargement des articles.", true);
+        showToast("Erreur de chargement des spots publicitaires.", true);
     }
-}
-
-function ouvrirPopupAjoutStock(produit) {
-    produitSelectionne = produit;
-    $("#popup-ajout-stock").dxPopup("instance").show();
-    $("#form-ajout-stock").dxForm({
-        formData: {
-            quantite: 1
-        },
-        items: [{
-            dataField: "quantite",
-            label: {
-                text: "Quantité à ajouter"
-            },
-            editorType: "dxNumberBox",
-            editorOptions: {
-                min: 1
-            },
-            validationRules: [{
-                type: "required"
-            }]
-        }]
-    });
-}
-
-async function ajouterStock() {
-    const form = $("#form-ajout-stock").dxForm("instance");
-    if (!form.validate().isValid)
-        return;
-    const qte = form.option("formData").quantite;
-    const res = await fetch(`/api/produits/${produitSelectionne.id_Produit}/stock`, {
-        method: "PUT",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify(qte)
-    });
-    if (!res.ok) {
-        showToast("Erreur lors de l'ajout du stock", true);
-        return;
-    }
-    showToast("Stock mis à jour");
-    $("#popup-ajout-stock").dxPopup("instance").hide();
-    chargerProduits();
-}
-
-// RENDU CELLULE JAUGE DE STOCK
-function renderStockProgressBar(container, options) {
-    const p = options.data;
-    const stock = p.quantiteStock;
-    const seuil = p.seuilAlerte;
-    const sousAlerte = stock <= seuil;
-    const enRupture = stock === 0;
-    let stockFillClass = '';
-    if (enRupture)
-        stockFillClass = 'danger';
-    else if (sousAlerte)
-        stockFillClass = 'warning';
-    
-    const pct = Math.min((stock / 50) * 100, 100);
-    const $wrapper = $("<div style='display:flex; flex-direction:column; gap:4px; width:100%;'>");
-    $wrapper.append(`
-        <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:600;">
-            <span>${stock} ${p.unite}</span>
-            ${enRupture ? '<span class="text-danger" style="font-size:10px;">RUPTURE</span>' : (sousAlerte ? '<span class="text-warning" style="font-size:10px;">BAS</span>' : '')}
-        </div>
-        <div class="stock-bar-bg" style="height:6px; background-color:var(--border); border-radius:10px; overflow:hidden; width:100%;">
-            <div class="stock-bar-fill ${stockFillClass}" style="height:100%; width:${pct}%; border-radius:10px;"></div>
-        </div>
-    `);
-    $wrapper.appendTo(container);
 }
 
 // CHARGER CATEGORIES
@@ -196,7 +113,7 @@ async function chargerCategories() {
 
 function initPopupCategorie() {
     $("#popup-categorie").dxPopup({
-        title: "Nouvelle catégorie",
+        title: "Nouvelle catégorie de spot",
         width: 400,
         height: "auto",
         visible: false,
@@ -235,14 +152,12 @@ function initPopupCategorie() {
                 items: [
                     {
                         dataField: "nom",
-                        validationRules: [
-                            {
-                                type: "required"
-                            }
-                        ]
+                        label: { text: "Nom de la catégorie" },
+                        validationRules: [{ type: "required" }]
                     },
                     {
                         dataField: "description",
+                        label: { text: "Description" },
                         editorType: "dxTextArea"
                     }
                 ]
@@ -251,11 +166,11 @@ function initPopupCategorie() {
     });
 }
 
-// CREER ARTICLE (POPUP DX)
+// CREER SPOT PUBLICITAIRE (POPUP DX)
 function initPopupArticle() {
     $("#popup-article").dxPopup({
-        title: "Ajouter un article au catalogue",
-        width: 520,
+        title: "Ajouter un Spot Publicitaire au catalogue",
+        width: 540,
         height: "auto",
         visible: false,
         dragEnabled: true,
@@ -270,8 +185,9 @@ function initPopupArticle() {
                 toolbar: "bottom",
                 widget: "dxButton",
                 options: {
-                    text: "Créer l'Article",
-                    type: "default", onClick: () => soumettreArticle()
+                    text: "Créer le Spot Publicitaire",
+                    type: "default",
+                    onClick: () => soumettreArticle()
                 }
             },
             {
@@ -280,7 +196,7 @@ function initPopupArticle() {
                 toolbar: "bottom",
                 widget: "dxButton",
                 options: {
-                    text: "Annuler", 
+                    text: "Annuler",
                     onClick: () => $("#popup-article").dxPopup("instance").hide()
                 }
             }
@@ -293,28 +209,27 @@ function initPopupArticle() {
                     Designation: "",
                     id_Categorie: null,
                     prixUniversitaire: 0,
-                    QuantiteStock: 10,
-                    Unite: "Unité",
-                    seuilAlerte: 3,
+                    Unite: "Secondes",
                     TauxTVA: 19,
-                    Actif: 1
+                    QuantiteStock: 999999,
+                    Actif: true
                 },
                 labelLocation: "top",
                 items: [
                     {
                         dataField: "Code",
                         label: {
-                            text: "Code Unique (SKU)"
+                            text: "Code Spot (SKU)"
                         },
                         validationRules: [{
                             type: "required",
-                            message: "Le code SKU est requis."
+                            message: "Le code spot est requis."
                         }]
                     },
                     {
                         dataField: "Designation",
                         label: {
-                            text: "Nom de l'Article"
+                            text: "Nom / Désignation du Spot Publicitaire"
                         },
                         validationRules: [{
                             type: "required",
@@ -353,43 +268,49 @@ function initPopupArticle() {
                         ]
                     },
                     {
-                        dataField: "prixUniversitaire",
+                        dataField: "Unite",
                         label: {
-                            text: "Prix Unitaire HT (TND)"
+                            text: "Durée (en secondes)"
                         },
-                        editorType: "dxNumberBox",
+                        editorType: "dxTextBox",
                         editorOptions: {
-                            min: 0.001,
-                            format: "#,###0.000 TND"
+                            value: "60",
+                            placeholder: "ex: 60"
                         }
                     },
                     {
-                        dataField: "QuantiteStock",
+                        dataField: "prixUniversitaire",
                         label: {
-                            text: "Stock Initial"
+                            text: "Prix Unitaire HT (TND / seconde)"
                         },
                         editorType: "dxNumberBox",
                         editorOptions: {
-                            min: 0
+                            min: 0,
+                            format: "#,###0.000 TND"
                         }
                     },
                     {
                         dataField: "TauxTVA",
                         label: {
-                            text: "TVA (%)"
+                            text: "Taux TVA (%)"
                         },
-                        editorType: "dxNumberBox",
+                        editorType: "dxSelectBox",
                         editorOptions: {
-                            min: 0,
-                            format: "00.0%"
-                        }
-                    },
-                    {
-                        dataField: "Unite",
-                        label: {
-                            text: "Unité de vente (cm, kg, etc...)"
-                        }
-                    },
+                            dataSource: [
+                                { value: 0, text: "0 %" },
+                                { value: 7, text: "7 %" },
+                                { value: 13, text: "13 %" },
+                                { value: 19, text: "19 %" }
+                            ],
+                            valueExpr: "value",
+                            displayExpr: "text",
+                            value: 19
+                        },
+                        validationRules: [{
+                            type: "required",
+                            message: "Le taux de TVA est requis."
+                        }]
+                    }
                 ]
             });
         }
@@ -398,8 +319,6 @@ function initPopupArticle() {
 
 function ouvrirPopupArticle() {
     const popup = $("#popup-article").dxPopup("instance");
-
-    // Reset the form if it already exists
     const form = $("#dx-form-article").dxForm("instance");
 
     if (form) {
@@ -408,11 +327,10 @@ function ouvrirPopupArticle() {
             Designation: "",
             id_Categorie: null,
             prixUniversitaire: 0,
-            QuantiteStock: 10,
-            Unite: "Unité",
-            seuilAlerte: 3,
+            Unite: "Secondes",
             TauxTVA: 19,
-            Actif: 1
+            QuantiteStock: 999999,
+            Actif: true
         });
 
         form.resetValidation();
@@ -443,13 +361,9 @@ async function creerCategorie() {
     $("#popup-categorie").dxPopup("instance").hide();
     showToast("Catégorie créée.");
 
-    // Refresh the dropdown
     const articleForm = $("#dx-form-article").dxForm("instance");
-
     const editor = articleForm.getEditor("id_Categorie");
     editor.option("dataSource", categoriesData);
-
-    // Automatically select the new category
     editor.option("value", nouvelleCategorie.id_Categorie);
 }
 
@@ -461,6 +375,8 @@ async function soumettreArticle() {
         return;
     
     const payload = form.option("formData");
+    if (!payload.Unite) payload.Unite = "Secondes";
+    payload.QuantiteStock = 999999; // bypass stock system for spots
 
     try {
         const res = await fetch('/api/produits', {
@@ -472,9 +388,9 @@ async function soumettreArticle() {
         });
         if (!res.ok) {
             const err = await res.json();
-            throw new Error(err.message || "Erreur de création de l'article.");
+            throw new Error(err.message || "Erreur de création du spot publicitaire.");
         }
-        showToast("Article créé avec succès !");
+        showToast("Spot publicitaire créé avec succès !");
         $("#popup-article").dxPopup("instance").hide();
         chargerToutesLesDonnees();
         if (activeTab === 'articles')

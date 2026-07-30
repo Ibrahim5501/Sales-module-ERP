@@ -175,14 +175,14 @@ function renderCommandeActions(container, options) {
 
 // ACTION LOGIQUE DES COMMANDES
 async function validerCommande(id) {
-    if (!confirm("Valider cette commande ? Le stock sera mis à jour et un fichier PDF sera généré.")) return;
+    if (!confirm("Valider cette commande ? Un fichier PDF sera généré.")) return;
     try {
         const res = await fetch(`/api/commandes/${id}/valider`, { method: 'POST' });
         if (!res.ok) {
             const err = await res.json();
             throw new Error(err.message || "Erreur de validation");
         }
-        showToast("Commande validée ! Fichier PDF généré et stock mis à jour.");
+        showToast("Commande validée ! Fichier PDF généré.");
         chargerToutesLesDonnees();
         chargerCommandes();
     } catch (err) {
@@ -191,7 +191,7 @@ async function validerCommande(id) {
 }
 
 async function annulerCommande(id) {
-    if (!confirm("Annuler cette commande ? Le stock validé sera récrédité.")) return;
+    if (!confirm("Annuler cette commande ?")) return;
     try {
         const res = await fetch(`/api/commandes/${id}/annuler`, { method: 'POST' });
         if (!res.ok) {
@@ -333,11 +333,14 @@ async function ouvrirDetailCommande(id) {
         }
         c.lignes.forEach(l => {
             const remiseStr = l.remise > 0 ? `(-${l.remise}%)` : '';
+            const emissionBadge = l.emission
+                ? `<span class="badge badge-blue" style="margin-left:6px; font-size:11px;">${l.emission}</span>`
+                : '';
             linesHtml += `
                 <div class="detail-item-row" style="display:flex; justify-content:space-between; padding:8px 12px; background:var(--bg-app); border-radius:4px; margin-bottom:8px; font-size:13px;">
                     <div style="display:flex; flex-direction:column;">
-                        <strong>${l.designation}</strong>
-                        <span style="font-size:11px; color:var(--text-muted);">${l.quantite} x ${formatCurrency(l.prixUniversitaire)} ${remiseStr}</span>
+                        <div><strong>${l.designation}</strong>${emissionBadge}</div>
+                        <span style="font-size:11px; color:var(--text-muted);">${l.quantite} sec × ${formatCurrency(l.prixUniversitaire)} ${remiseStr} &mdash; TVA ${l.tauxTVA}%</span>
                     </div>
                     <strong style="align-self:center;">${formatCurrency(l.montantTTC)}</strong>
                 </div>
@@ -350,7 +353,10 @@ async function ouvrirDetailCommande(id) {
                     <div><span style="color:var(--text-muted);">N° Commande:</span> <strong>${c.numeroCommande}</strong></div>
                     <div><span style="color:var(--text-muted);">Statut:</span> <span class="badge ${badgeClass}">${badgeLabel}</span></div>
                     <div><span style="color:var(--text-muted);">Date:</span> <strong>${dateFormatted}</strong></div>
-                    <div><span style="color:var(--text-muted);">Total TTC (TND):</span> <strong class="text-primary">${formatCurrency(c.montantTTC)}</strong></div>
+                    <div><span style="color:var(--text-muted);">Réf. Devis:</span> <strong>${c.numeroDevis || 'N/A'}</strong></div>
+                    <div><span style="color:var(--text-muted);">Total HT:</span> <strong>${formatCurrency(c.montantHT)}</strong></div>
+                    <div><span style="color:var(--text-muted);">Total TVA:</span> <strong>${formatCurrency(c.montantTVA)}</strong></div>
+                    <div><span style="color:var(--text-muted);">Total TTC:</span> <strong class="text-primary">${formatCurrency(c.montantTTC)}</strong></div>
                 </div>
             </div>
 

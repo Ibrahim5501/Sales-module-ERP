@@ -69,6 +69,7 @@ namespace example2.Controllers
             return Ok(new
             {
                 token = tokenString,
+                username = dbUser.Username,
                 email = dbUser.Email,
             });
         }
@@ -89,6 +90,7 @@ namespace example2.Controllers
 
             var newUser = new UserEntity
             {
+                Username = request.Username,
                 Email = request.Email
             };
 
@@ -101,7 +103,7 @@ namespace example2.Controllers
             return Ok(new
             {
                 message = "Utilisateur enregistré avec succès.",
-                user = new { id = newUser.Id, email = newUser.Email }
+                user = new { id = newUser.Id, username= newUser.Username, email = newUser.Email }
             });
         }
     }
@@ -114,6 +116,7 @@ namespace example2.Controllers
 
     public class RegisterRequest
     {
+        public string Username { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
     }

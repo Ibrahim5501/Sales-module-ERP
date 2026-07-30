@@ -61,6 +61,8 @@ namespace example2.DTOs
 
         public string? CreatedByEmail { get; set; }
 
+        public string? CreatedByUsername { get; set; }
+
         public List<DevisLigneDto> Lignes { get; set; } = new();
     }
 }

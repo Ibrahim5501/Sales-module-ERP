@@ -260,17 +260,7 @@ namespace example2.Services
             var cmd = _context.Commandes.Include(c => c.Lignes).FirstOrDefault(c => c.Id_Commande == id);
             if (cmd == null || cmd.Statut != CommandeStatut.EnAttente) return null;
 
-            foreach (var ligne in cmd.Lignes)
-            {
-                var produit = ligne.Produit;
-
-                if (produit == null)
-                    continue;
-
-                produit.QuantiteStock = Math.Max(
-                    0,
-                    produit.QuantiteStock - (int)ligne.Quantite);
-            }
+            // Les spots publicitaires ne possèdent pas de stock physique à décrémenter
 
             cmd.Statut = CommandeStatut.Validee;
             _context.SaveChanges();
@@ -282,19 +272,7 @@ namespace example2.Services
             var cmd = _context.Commandes.Include(c => c.Lignes).FirstOrDefault(c => c.Id_Commande == id);
             if (cmd == null || cmd.Statut == CommandeStatut.Facutree || cmd.Statut == CommandeStatut.Cloturee || cmd.Statut == CommandeStatut.Annulee) return null;
 
-            // Restaurer les stocks si la commande était validée
-            if (cmd.Statut == CommandeStatut.Validee)
-            {
-                foreach (var ligne in cmd.Lignes)
-                {
-                    var produit = ligne.Produit;
-
-                    if (produit == null)
-                        continue;
-
-                    produit.QuantiteStock += (int)ligne.Quantite;
-                }
-            }
+            // Les spots publicitaires ne possèdent pas de stock physique à réajuster
 
             cmd.Statut = CommandeStatut.Annulee;
             _context.SaveChanges();

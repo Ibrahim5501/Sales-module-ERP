@@ -24,6 +24,8 @@ namespace example2.Models
 
         public decimal MontantTTC { get; set; }
 
+        public string? Emission { get; set; }
+
         // Navigation
         public int Id_Devis { get; set; }
 

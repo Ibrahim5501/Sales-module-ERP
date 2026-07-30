@@ -57,7 +57,7 @@ namespace example2.Services
                 <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;'>
                     <h2 style='color: #2563eb; margin-top: 0;'>DIGI ERP - Devis Commercial</h2>
                     <p>Bonjour <strong>{WebUtility.HtmlEncode(clientName)}</strong>,</p>
-                    <p>Veuillez trouver ci-joint votre devis <strong>n° {devis.NumeroDevis}</strong> d'un montant total de <strong>{devis.MontantTTC:N2} TND</strong> TTC.</p>
+                    <p>Veuillez trouver ci-joint votre devis <strong>n° {devis.NumeroDevis}</strong> d'un montant total de <strong>{devis.MontantTTC:N3} TND</strong> TTC.</p>
                     <table style='width: 100%; border-collapse: collapse; margin: 20px 0;'>
                         <tr style='background: #f8fafc;'>
                             <th style='padding: 8px; text-align: left; border-bottom: 1px solid #cbd5e1;'>Champ</th>
@@ -77,7 +77,7 @@ namespace example2.Services
                         </tr>
                         <tr>
                             <td style='padding: 8px; border-bottom: 1px solid #e2e8f0;'>Montant TTC</td>
-                            <td style='padding: 8px; border-bottom: 1px solid #e2e8f0; color: #2563eb;'><strong>{devis.MontantTTC:N2} TND</strong></td>
+                            <td style='padding: 8px; border-bottom: 1px solid #e2e8f0; color: #2563eb;'><strong>{devis.MontantTTC:N3} TND</strong></td>
                         </tr>
                     </table>
                     <p>Le document officiel au format PDF est disponible en pièce jointe.</p>

@@ -107,7 +107,8 @@ namespace example2.Controllers
                     TauxTVA = l.TauxTVA,
                     Remise = l.Remise,
                     TypeRemise = string.IsNullOrEmpty(l.TypeRemise) ? "Pourcentage" : l.TypeRemise,
-                    Id_Produit = l.Id_Produit
+                    Id_Produit = l.Id_Produit,
+                    Emission = l.Emission
                 }).ToList()
             };
 
@@ -165,7 +166,8 @@ namespace example2.Controllers
                 TauxTVA = l.TauxTVA,
                 Remise = l.Remise,
                 TypeRemise = string.IsNullOrEmpty(l.TypeRemise) ? "Pourcentage" : l.TypeRemise,
-                Id_Produit = l.Id_Produit
+                Id_Produit = l.Id_Produit,
+                Emission = l.Emission
             }).ToList();
 
             CalculateDevisTotals(existing);
@@ -344,6 +346,7 @@ namespace example2.Controllers
                     PrixUniversitaire = l.PrixUniversitaire,
                     Remise = l.Remise,
                     TauxTVA = l.TauxTVA,
+                    Emission = l.Emission,
                     MontantHT = l.MontantHT,
                     MontantTTC = l.MontantTTC
                 }).ToList()
@@ -456,6 +459,7 @@ namespace example2.Controllers
                 MontantTVA = d.MontantTVA,
                 Id_User = d.Id_User,
                 CreatedByEmail = d.User?.Email ?? "N/A",
+                CreatedByUsername = d.User?.Username ?? "N/A",
                 Lignes = d.Lignes.Select(l => new DevisLigneDto
                 {
                     Id_DevisLigne = l.Id_DevisLigne,
@@ -469,6 +473,7 @@ namespace example2.Controllers
                     MontantTTC = l.MontantTTC,
                     Id_Produit = l.Id_Produit,
                     Designation = l.Produit?.Designation ?? "Produit",
+                    Emission = l.Emission
                 }).ToList()
             };
         }

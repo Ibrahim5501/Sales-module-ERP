@@ -43,10 +43,10 @@ async function chargerLivraisons() {
                             $("<strong>").text(options.value).appendTo(container);
                         }
                     },
-                    { dataField: "nomPartenaire",  caption: "Client",         width: 250 },
+                    { dataField: "nomPartenaire",  caption: "Client",         width: 200 },
                     { dataField: "numeroCommande", caption: "N° Commande",  width: 140 },
                     { dataField: "devisOrigine",   caption: "Devis Origine",   width: 140 },
-                    { dataField: "adresse",        caption: "Adresse Livraison", width: 200 },
+                    { dataField: "adresse",        caption: "Adresse Livraison", width: 170 },
                     {
                         dataField: "datePrevue",
                         caption: "Date Prévue",
@@ -71,7 +71,7 @@ async function chargerLivraisons() {
                     {
                         caption: "Actions",
                         alignment: "center",
-                        width: 280,
+                        width: 250,
                         cellTemplate: renderLivraisonActions
                     }
                 ]

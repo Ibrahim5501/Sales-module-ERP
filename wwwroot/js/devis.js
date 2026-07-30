@@ -61,7 +61,7 @@ async function chargerDevis() {
                     width: 200
                 },
                 {
-                    dataField: "createdByEmail",
+                    dataField: "createdByUsername",
                     caption: "Créé par",
                     width: 160,
                     cellTemplate: (container, options) => {
@@ -300,13 +300,14 @@ async function ouvrirDetailDevis(id) {
 
         d.lignes.forEach(l => {
             const remiseStr = l.remise > 0 ? (l.typeRemise === "MontantFixe" ? `(-${l.remise.toFixed(3)} DT)` : `(-${l.remise}%)`) : "";
+            const emissionBadge = l.emission ? `<span class="badge badge-blue" style="margin-left:6px; font-size:11px;">${l.emission}</span>` : "";
             linesHtml += `
                 <div class="detail-item-row"
                      style="display:flex; justify-content:space-between; padding:8px 12px; background:var(--bg-app); border-radius:4px; margin-bottom:8px; font-size:13px;">
                     <div style="display:flex; flex-direction:column;">
-                        <strong>${l.designation}</strong>
+                        <div><strong>${l.designation}</strong>${emissionBadge}</div>
                         <span style="font-size:11px;color:var(--text-muted);">
-                            ${l.quantite} × ${formatCurrency(l.prixUniversitaire)} ${remiseStr}
+                            ${l.quantite} sec × ${formatCurrency(l.prixUniversitaire)} ${remiseStr} &mdash; TVA ${l.tauxTVA}%
                         </span>
                     </div>
                     <strong style="align-self:center;">
@@ -425,8 +426,9 @@ async function refuserDevisDepuisPopup(id) {
 function initPopupDevis() {
     $("#popup-devis").dxPopup({
         title: "Créer un Devis Commercial",
-        width: 860,
-        height: "auto",
+        width: 1150,
+        height: "80vh",
+        maxHeight: "90vh",
         maxHeight: null,
         visible: false,
         dragEnabled: true,
@@ -542,7 +544,7 @@ function ouvrirNouveauDevisPopup() {
                         itemType: "button",
                         buttonOptions: {
                             icon: "product",
-                            text: "Nouveau article",
+                            text: "Nouveau spot",
                             type: "normal",
                             width: "100%",
                             onClick() { ouvrirPopupArticle(); }
@@ -636,10 +638,10 @@ function ouvrirNouveauDevisPopup() {
         columns: [
             {
                 dataField: "produitId",
-                caption: "Article / Produit",
-                width: 170,
+                caption: "Spot Publicitaire",
+                width: 180,
                 lookup: {
-                    dataSource: produitsData.filter(p => p.actif === true && p.quantiteStock > 0),
+                    dataSource: produitsData.filter(p => p.actif === true),
                     valueExpr: "id_Produit",
                     displayExpr: item => item ? `${item.designation} (${item.code})` : ""
                 },
@@ -650,11 +652,28 @@ function ouvrirNouveauDevisPopup() {
                     if (prod) {
                         rowData.prixUniversitaire = prod.prixUniversitaire;
                         rowData.TauxTVA = prod.TauxTVA || 19;
-                        rowData.quantite = 1;
+                        rowData.quantite = 10;
                         rowData.remise = 0;
                         rowData.typeRemise = "Pourcentage";
-                        rowData.stockDisponible = prod.quantiteStock;
+                        rowData.emission = "Prime Time";
                     }
+                }
+            },
+            {
+                dataField: "emission",
+                caption: "Émission",
+                width: 190,
+                lookup: {
+                    dataSource: [
+                        "Matinale",
+                        "Journal Télévisé",
+                        "Prime Time",
+                        "Divertissement",
+                        "Sport",
+                        "Culture",
+                        "Flashes / Météo",
+                        "Autre"
+                    ]
                 }
             },
             {
@@ -668,18 +687,14 @@ function ouvrirNouveauDevisPopup() {
             },
             {
                 dataField: "quantite",
-                caption: "Qté",
+                caption: "Durée (sec)",
                 dataType: "number",
-                width: 70,
+                width: 110,
                 alignment: "center",
                 editorOptions: { min: 1 },
                 validationRules: [{ type: "required" }],
                 setCellValue: (rowData, value) => {
-                    if (value > rowData.stockDisponible) {
-                        rowData.quantite = rowData.stockDisponible;
-                    } else {
-                        rowData.quantite = value;
-                    }
+                    rowData.quantite = value;
                 }
             },
             {
@@ -840,20 +855,12 @@ async function soumettreDevis() {
         return;
     }
 
-    // Vérification du stock
+    // Vérification de validité
     for (const line of lines) {
         const produit = produitsData.find(p => p.id_Produit === line.produitId);
 
         if (!produit) {
-            showToast("Produit introuvable.", true);
-            return;
-        }
-
-        if (line.quantite > produit.quantiteStock) {
-            showToast(
-                `Stock insuffisant pour "${produit.designation}". Disponible : ${produit.quantiteStock}, demandé : ${line.quantite}.`,
-                true
-            );
+            showToast("Spot publicitaire introuvable.", true);
             return;
         }
     }
@@ -875,6 +882,7 @@ async function soumettreDevis() {
             TauxTVA: l.TauxTVA !== undefined ? l.TauxTVA : 19,
             remise: l.remise || 0,
             typeRemise: l.typeRemise || "Pourcentage",
+            emission: l.emission || "",
             montantHT: 0,
             montantTTC: 0
         }))

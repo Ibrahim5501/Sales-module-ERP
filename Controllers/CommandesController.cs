@@ -120,17 +120,7 @@ namespace example2.Controllers
             if (cmd == null || cmd.Statut != CommandeStatut.EnAttente)
                 return BadRequest(new { message = "Impossible de valider la commande. Soit elle n'existe pas, soit elle n'est plus en statut EnAttente." });
 
-            foreach (var ligne in cmd.Lignes)
-            {
-                var produit = ligne.Produit;
-
-                if (produit == null)
-                    continue;
-
-                produit.QuantiteStock = Math.Max(
-                    0,
-                    produit.QuantiteStock - (int)ligne.Quantite);
-            }
+            // Les spots publicitaires ne possèdent pas de stock physique à décrémenter
 
             cmd.Statut = CommandeStatut.Validee;
             await _context.SaveChangesAsync();
@@ -170,7 +160,7 @@ namespace example2.Controllers
 
         [HttpGet("{id}/pdf")]
         [AllowAnonymous]
-        public async Task<ActionResult> GetPdf(long id)
+        public async Task<ActionResult> GetPdf(int id)
         {
             var cmd = await _context.Commandes
                 .Include(c => c.Lignes)
@@ -197,20 +187,7 @@ namespace example2.Controllers
             if (cmd == null || cmd.Statut == CommandeStatut.Facutree || cmd.Statut == CommandeStatut.Cloturee || cmd.Statut == CommandeStatut.Annulee)
                 return BadRequest(new { message = "Impossible d'annuler la commande. Les commandes facturées ou déjà annulées ne peuvent être modifiées." });
 
-            if (cmd.Statut == CommandeStatut.Validee)
-            {
-                foreach (var ligne in cmd.Lignes)
-                {
-                    var produit = ligne.Produit;
-
-                    if (produit == null)
-                        continue;
-
-                    produit.QuantiteStock = Math.Max(
-                        0,
-                        produit.QuantiteStock - (int)ligne.Quantite);
-                }
-            }
+            // Les spots publicitaires ne possèdent pas de stock physique à réajuster
 
             cmd.Statut = CommandeStatut.Annulee;
             await _context.SaveChangesAsync();
@@ -278,6 +255,7 @@ namespace example2.Controllers
                 NumeroCommande = c.NumeroCommande,
                 DateCommande = c.DateCommande,
                 MontantHT = c.MontantHT,
+                MontantTVA = c.MontantTVA,
                 MontantTTC = c.MontantTTC,
                 Statut = c.Statut,
                 Lignes = c.Lignes.Select(l => new CommandeLigneDto
@@ -291,7 +269,8 @@ namespace example2.Controllers
                     MontantHT = l.MontantHT,
                     MontantTTC = l.MontantTTC,
                     Id_Produit = l.Id_Produit,
-                    Designation = l.Produit.Designation,
+                    Designation = l.Produit?.Designation ?? "Spot Publicitaire",
+                    Emission = l.Emission,
                 }).ToList()
             };
         }

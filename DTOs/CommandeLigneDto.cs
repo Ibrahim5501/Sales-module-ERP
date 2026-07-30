@@ -24,7 +24,7 @@ namespace example2.DTOs
 
         public int Id_Produit { get; set; }
 
-
+        public string? Emission { get; set; }
     }
 
     public class CommandeLigneUpdateDto : CommandeLigneCreateDto
