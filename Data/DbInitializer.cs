@@ -40,6 +40,22 @@ namespace example2.Data
                 context.CompanySettings.Add(settings);
                 context.SaveChanges();
             }
+
+            if (!context.PlagesHoraires.Any())
+            {
+                var plages = new[]
+                {
+                    new PlageHoraire { Nom = "Matinale", HeureDebut = "06:00", HeureFin = "09:00", Description = "Tranche du matin", Actif = true },
+                    new PlageHoraire { Nom = "Magazine", HeureDebut = "09:00", HeureFin = "12:00", Description = "Émission mi-journée", Actif = true },
+                    new PlageHoraire { Nom = "Journal Télévisé", HeureDebut = "12:00", HeureFin = "13:00", Description = "Tranche d'information", Actif = true },
+                    new PlageHoraire { Nom = "Après-midi", HeureDebut = "13:00", HeureFin = "18:00", Description = "Tranche après-midi", Actif = true },
+                    new PlageHoraire { Nom = "Culture", HeureDebut = "18:00", HeureFin = "20:00", Description = "Programmes culturels", Actif = true },
+                    new PlageHoraire { Nom = "Prime Time", HeureDebut = "20:00", HeureFin = "22:30", Description = "Grande écoute", Actif = true },
+                    new PlageHoraire { Nom = "Divertissement", HeureDebut = "22:30", HeureFin = "00:00", Description = "Fin de soirée", Actif = true }
+                };
+                context.PlagesHoraires.AddRange(plages);
+                context.SaveChanges();
+            }
         }
     }
 }

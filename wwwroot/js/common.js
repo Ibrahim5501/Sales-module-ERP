@@ -52,6 +52,8 @@ let facturesData = [];
 let devisData = [];
 let categoriesData = [];
 let livraisonsData = [];
+var plagesHorairesData = [];
+window.plagesHorairesData = window.plagesHorairesData || [];
 let internalDevisLines = [];
 let activeTab = 'tableau-bord';
 let toastInstance = null;
@@ -135,6 +137,9 @@ function switchTab(tabId) {
         if (typeof chargerProduits === 'function') chargerProduits();
     } else if (tabId === 'livraisons') {
         if (typeof chargerLivraisons === 'function') chargerLivraisons();
+    } else if (tabId === 'plages-horaires') {
+        console.log("Chargement des plages horaires...");
+        if (typeof chargerPlagesHoraires === 'function') chargerPlagesHoraires();
     } else if (tabId === 'settings') {
         if (typeof chargerCompanySettings === 'function') chargerCompanySettings();
     }
@@ -143,12 +148,18 @@ function switchTab(tabId) {
 // CHARGEMENT INITIAL DES DONNÉES
 async function chargerToutesLesDonnees() {
     try {
-        const [clientsRes, produitsRes] = await Promise.all([
+        console.log("Chargement des données initiales...");
+        const [clientsRes, produitsRes, plagesRes] = await Promise.all([
             fetch('/api/partenaires'),
-            fetch('/api/produits')
+            fetch('/api/produits'),
+            fetch('/api/plageshoraires')
         ]);
         clientsData = await clientsRes.json();
         produitsData = await produitsRes.json();
+        if (plagesRes.ok) {
+            window.plagesHorairesData = await plagesRes.json();
+            plagesHorairesData = window.plagesHorairesData;
+        }
 
         // Charger l'onglet actif par défaut
         switchTab(activeTab);

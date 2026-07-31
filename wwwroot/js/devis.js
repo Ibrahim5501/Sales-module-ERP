@@ -422,11 +422,12 @@ async function refuserDevisDepuisPopup(id) {
     $("#popup-detail-devis").dxPopup("instance").hide();
 }
 
+
 // --- POPUP CREATION DEVIS ---
 function initPopupDevis() {
     $("#popup-devis").dxPopup({
         title: "Créer un Devis Commercial",
-        width: 1150,
+        width: 1200,
         height: "80vh",
         maxHeight: "90vh",
         maxHeight: null,
@@ -655,25 +656,42 @@ function ouvrirNouveauDevisPopup() {
                         rowData.quantite = 10;
                         rowData.remise = 0;
                         rowData.typeRemise = "Pourcentage";
-                        rowData.emission = "Prime Time";
+                        rowData.emission = "Matinale (06:00 - 09:00)";
                     }
                 }
             },
             {
                 dataField: "emission",
-                caption: "Émission",
-                width: 190,
-                lookup: {
-                    dataSource: [
-                        "Matinale",
-                        "Journal Télévisé",
-                        "Prime Time",
-                        "Divertissement",
-                        "Sport",
-                        "Culture",
-                        "Flashes / Météo",
-                        "Autre"
-                    ]
+                caption: "Plage horaire",
+                width: 220,
+                editCellTemplate: function (cellElement, cellInfo) {
+                    const sourceData = (typeof plagesHorairesData !== "undefined" && Array.isArray(plagesHorairesData))
+                        ? plagesHorairesData
+                        : (window.plagesHorairesData || []);
+                    const options = (sourceData && sourceData.length > 0)
+                        ? sourceData.map(p => {
+                            return p.nom ? `${p.nom} (${p.heureDebut} - ${p.heureFin})` : `${p.heureDebut} - ${p.heureFin}`;
+                        })
+                        : [
+                            "Matinale (06:00 - 09:00)",
+                            "Magazine (09:00 - 12:00)",
+                            "Journal Télévisé (12:00 - 13:00)",
+                            "Après-midi (13:00 - 18:00)",
+                            "Culture (18:00 - 20:00)",
+                            "Prime Time (20:00 - 22:30)",
+                            "Divertissement (22:30 - 00:00)"
+                        ];
+
+                    $("<div>").dxSelectBox({
+                        items: options,
+                        value: cellInfo.value || "",
+                        placeholder: "Sélectionner une plage...",
+                        searchEnabled: true,
+                        showClearButton: true,
+                        onValueChanged: function (e) {
+                            cellInfo.setValue(e.value || "");
+                        }
+                    }).appendTo(cellElement);
                 }
             },
             {

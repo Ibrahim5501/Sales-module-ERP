@@ -52,14 +52,102 @@
                     <i class="fa-solid fa-circle-exclamation"></i> <span>Identifiants invalides</span>
                 </div>
 
-                <button type="submit" class="btn btn-login" id="btn-login-submit">
-                    <span>Se connecter</span> <i class="fa-solid fa-arrow-right-to-bracket"></i>
-                </button>
+                <div class="login-actions">
+                    <button type="submit" class="btn btn-login" id="btn-login-submit">
+                        <span>Se connecter</span>
+                        <i class="fa-solid fa-arrow-right-to-bracket"></i>
+                    </button>
+
+                    <button type="button" class="btn btn-secondary" id="btn-register">
+                        <span>Créer un compte</span>
+                        <i class="fa-solid fa-user-plus"></i>
+                    </button>
+                </div>
             </form>
 
             <div class="login-footer">
                 <p>&copy; 2026 DIGI ERP. Tous droits réservés.</p>
             </div>
+        </div>
+    </div>
+
+    <!-- ÉCRAN D'INSCRIPTION -->
+    <div class="login-container" id="register-screen" style="display:none;">
+        <div class="login-card">
+
+            <div class="login-header">
+                <div class="login-logo-icon">
+                    <i class="fa-solid fa-user-plus"></i>
+                </div>
+
+                <h2>DIGI<span>ERP</span></h2>
+                <p>Créer un nouveau compte</p>
+            </div>
+
+            <form id="register-form">
+
+                <div class="input-group">
+                    <label>
+                        <i class="fa-solid fa-user"></i>
+                        Nom complet
+                    </label>
+                    <input type="text"
+                           id="register-name"
+                           required
+                           placeholder="Username">
+                </div>
+
+                <div class="input-group">
+                    <label>
+                        <i class="fa-regular fa-envelope"></i>
+                        Adresse Email
+                    </label>
+                    <input type="email"
+                           id="register-email"
+                           required
+                           placeholder="nom@exemple.com">
+                </div>
+
+                <div class="input-group">
+                    <label>
+                        <i class="fa-solid fa-lock"></i>
+                        Mot de passe
+                    </label>
+                    <input type="password"
+                           id="register-password"
+                           required>
+                </div>
+
+                <div class="input-group">
+                    <label>
+                        <i class="fa-solid fa-lock"></i>
+                        Confirmer le mot de passe
+                    </label>
+                    <input type="password"
+                           id="register-confirm-password"
+                           required>
+                </div>
+
+                <div class="error-msg"
+                     id="register-error"
+                     style="display:none;">
+                </div>
+
+                <div class="login-actions">
+                    <button type="submit"
+                            class="btn btn-login">
+                        <i class="fa-solid fa-user-plus"></i>
+                        Créer le compte
+                    </button>
+
+                    <button type="button"
+                            class="btn btn-secondary"
+                            id="btn-login">
+                        <i class="fa-solid fa-arrow-left"></i>
+                        Retour
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -101,6 +189,10 @@
                 <a href="#articles" class="topnav-item" id="nav-articles">
                     <i class="fa-solid fa-bullhorn"></i>
                     <span>Spots Publicitaires</span>
+                </a>
+                <a href="#plages-horaires" class="topnav-item" id="nav-plages-horaires">
+                    <i class="fa-solid fa-clock"></i>
+                    <span>Plages Horaires</span>
                 </a>
                 <a href="#settings" class="topnav-item" id="nav-settings">
                     <i class="fa-solid fa-gear"></i>
@@ -479,6 +571,24 @@
                     </div>
                 </section>
 
+                <!-- 8. ONGLET : PLAGES HORAIRES -->
+                <section id="pane-plages-horaires" class="tab-pane">
+                    <div class="page-header">
+                        <div class="page-header-left">
+                            <h1><i class="fa-solid fa-clock"></i> Gestion des Plages Horaires</h1>
+                            <p>Gérez les créneaux et tranches horaires pour la diffusion des spots publicitaires.</p>
+                        </div>
+                        <div class="page-header-right">
+                            <button class="btn btn-primary" id="btn-creer-plage-horaire-dx">
+                                <i class="fa-solid fa-plus"></i> Nouvelle Plage Horaire
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="grid-wrapper">
+                        <div id="grid-plages-horaires" class="devextreme-grid"></div>
+                    </div>
+                </section>
             </div>
         </main>
     </div>
@@ -495,6 +605,8 @@
     <div id="popup-categorie"></div>
     <div id="popup-detail-livraison"></div>
     <div id="popup-saisir-qte"></div>
+    <div id="popup-plage-horaire"></div>
+    <div id="popup-form-plage-horaire"></div>
 
     <!-- Notification Toast -->
     <div id="dx-toast"></div>
@@ -510,8 +622,10 @@
     <script src="js/articles.js"></script>
     <script src="js/devis.js"></script>
     <script src="js/livraisons.js"></script>
+    <script src="js/plages_horaires.js"></script>
     <script src="js/settings.js"></script>
     <!-- 3. Bootstrap principal (document.ready) -->
     <script src="js/app.js"></script>
+
 </body>
 </html>

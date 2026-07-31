@@ -26,6 +26,10 @@ $(document).ready(() => {
         showToast("Vous avez été déconnecté.");
     });
 
+    $("#btn-register").on("click", showRegisterScreen);
+
+    $("#btn-login").on("click", showLoginScreen);
+
     // Configurer le formulaire de connexion
     $("#login-form").on("submit", async (e) => {
         e.preventDefault();
@@ -70,6 +74,52 @@ $(document).ready(() => {
         }
     });
 
+    $("#register-form").on("submit", async function (e) {
+
+        e.preventDefault();
+
+        const password = $("#register-password").val();
+        const confirm = $("#register-confirm-password").val();
+
+        if (password !== confirm) {
+            $("#register-error")
+                .text("Les mots de passe ne correspondent pas.")
+                .show();
+            return;
+        }
+
+        const payload = {
+            Username: $("#register-name").val(),
+            Email: $("#register-email").val(),
+            Password: password
+        };
+
+        try {
+
+            const res = await fetch("/api/auth/register", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!res.ok)
+                throw new Error(await res.text());
+
+            alert("Compte créé avec succès.");
+
+            showLoginScreen();
+
+        } catch (err) {
+
+            $("#register-error")
+                .text(err.message)
+                .show();
+        }
+
+    });
+
     // Configurer la navigation SPA
     setupNavigation();
 
@@ -86,6 +136,7 @@ $(document).ready(() => {
     initPopupCategorie();
     initPopupDetailLivraison();
     initPopupSaisirQte();
+    initPopupFormPlageHoraire();
 
     // Lier les boutons d'ouverture aux Popups DevExtreme
     $("#btn-creer-client-dx").on("click", () => {
@@ -96,6 +147,9 @@ $(document).ready(() => {
     });
     $("#btn-creer-devis-dx").on("click", () => {
         ouvrirNouveauDevisPopup();
+    });
+    $("#btn-creer-plage-horaire-dx").on("click", () => {
+        ouvrirPopupFormPlageHoraire();
     });
 
     // Popup ajout stock
@@ -133,3 +187,13 @@ $(document).ready(() => {
         $(".app-container").css("display", "none");
     }
 });
+
+window.showRegisterScreen = function () {
+    $("#login-screen").css("display", "none");
+    $("#register-screen").css("display", "flex");
+};
+
+window.showLoginScreen = function () {
+    $("#register-screen").css("display", "none");
+    $("#login-screen").css("display", "flex");
+};

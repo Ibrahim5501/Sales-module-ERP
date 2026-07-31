@@ -92,8 +92,8 @@ namespace example2.Services
             yPos += 30;
             if (logoDrawn)
             {
-                gfx.DrawString(company.NomEntreprise, fontHeader, new XSolidBrush(primaryColor), margin, yPos);
-                yPos += 14;
+                gfx.DrawString(company.NomEntreprise, fontHeader, new XSolidBrush(primaryColor), margin, yPos + 15);
+                yPos += 30;
             }
             if (!string.IsNullOrEmpty(company.Activite))
             {
@@ -335,8 +335,8 @@ namespace example2.Services
             yPos += 30;
             if (logoDrawn)
             {
-                gfx.DrawString(company.NomEntreprise, fontHeader, new XSolidBrush(primaryColor), margin, yPos);
-                yPos += 14;
+                gfx.DrawString(company.NomEntreprise, fontHeader, new XSolidBrush(primaryColor), margin, yPos + 15);
+                yPos += 30;
             }
             if (!string.IsNullOrEmpty(company.Activite))
             {

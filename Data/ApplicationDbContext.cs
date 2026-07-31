@@ -23,6 +23,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<Livraison> Livraisons => Set<Livraison>();
     public DbSet<LivraisonLigne> LivraisonLignes => Set<LivraisonLigne>();
     public DbSet<CompanySettings> CompanySettings => Set<CompanySettings>();
+    public DbSet<PlageHoraire> PlagesHoraires => Set<PlageHoraire>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

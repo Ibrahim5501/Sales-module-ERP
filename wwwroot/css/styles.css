@@ -1054,6 +1054,32 @@ body.dark-mode .dx-data-row > td {
 
 .login-footer { text-align: center; font-size: 11px; color: var(--text-light); }
 
+.login-actions {
+    display: flex;
+    flex-direction: row;
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.btn-register {
+    background: #fff;
+    color: var(--navy);
+    border: 1px solid var(--border);
+}
+
+.btn-register:hover {
+    background: var(--bg-app);
+ }
+
+.btn-secondary {
+    background: #f3f4f6;
+    color: #374151;
+}
+
+.btn-secondary:hover {
+    background: #e5e7eb;
+}
+
 /* ================================================================
    MODAL / FORM COMPONENTS (used by DevExtreme popups)
    ================================================================ */
