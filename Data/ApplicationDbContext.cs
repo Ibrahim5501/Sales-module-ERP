@@ -24,6 +24,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<LivraisonLigne> LivraisonLignes => Set<LivraisonLigne>();
     public DbSet<CompanySettings> CompanySettings => Set<CompanySettings>();
     public DbSet<PlageHoraire> PlagesHoraires => Set<PlageHoraire>();
+    public DbSet<ArticleVariante> ArticlesVariantes => Set<ArticleVariante>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -190,5 +191,23 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<Livraison>()
             .Property(l => l.Statut)
             .HasConversion(new EnumToStringConverter<LivraisonStatut>());
+
+        //----------------------------------------------------
+        // ArticleVariante -> Produit (many-to-one)
+        //----------------------------------------------------
+        modelBuilder.Entity<ArticleVariante>()
+            .HasOne(av => av.Produit)
+            .WithMany()
+            .HasForeignKey(av => av.Id_Produit)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        //----------------------------------------------------
+        // ArticleVariante -> PlageHoraire (many-to-one)
+        //----------------------------------------------------
+        modelBuilder.Entity<ArticleVariante>()
+            .HasOne(av => av.PlageHoraire)
+            .WithMany()
+            .HasForeignKey(av => av.Id_PlageHoraire)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

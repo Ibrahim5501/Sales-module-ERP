@@ -137,6 +137,8 @@ $(document).ready(() => {
     initPopupDetailLivraison();
     initPopupSaisirQte();
     initPopupFormPlageHoraire();
+    initPopupArticleVariante();
+    initPopupConfigDevisLigne();
 
     // Lier les boutons d'ouverture aux Popups DevExtreme
     $("#btn-creer-client-dx").on("click", () => {
@@ -150,6 +152,9 @@ $(document).ready(() => {
     });
     $("#btn-creer-plage-horaire-dx").on("click", () => {
         ouvrirPopupFormPlageHoraire();
+    });
+    $("#btn-creer-article-variante-dx").on("click", () => {
+        ouvrirPopupArticleVariante();
     });
 
     // Popup ajout stock

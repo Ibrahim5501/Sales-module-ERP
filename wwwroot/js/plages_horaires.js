@@ -12,6 +12,7 @@ function initPopupFormPlageHoraire() {
         width: 500,
         height: "auto",
         visible: false,
+        deferRendering: false,
         dragEnabled: true,
         showCloseButton: true,
         contentTemplate: function (container) {
@@ -190,6 +191,13 @@ async function chargerPlagesHoraires() {
 
         // Si la grille n'existe pas dans le DOM, sortir
         if (!$("#grid-plages-horaires").length) return;
+
+        const existingGrid = $("#grid-plages-horaires").dxDataGrid("instance");
+        if (existingGrid) {
+            existingGrid.option("dataSource", window.plagesHorairesData);
+            existingGrid.refresh();
+            return;
+        }
 
         $("#grid-plages-horaires").dxDataGrid({
             dataSource: plagesHorairesData,

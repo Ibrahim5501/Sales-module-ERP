@@ -186,14 +186,27 @@
                     <i class="fa-solid fa-users"></i>
                     <span>Clients</span>
                 </a>
-                <a href="#articles" class="topnav-item" id="nav-articles">
-                    <i class="fa-solid fa-bullhorn"></i>
-                    <span>Spots Publicitaires</span>
-                </a>
-                <a href="#plages-horaires" class="topnav-item" id="nav-plages-horaires">
-                    <i class="fa-solid fa-clock"></i>
-                    <span>Plages Horaires</span>
-                </a>
+                <div class="topnav-dropdown">
+                    <button class="topnav-item topnav-dropdown-toggle">
+                        <i class="fa-solid fa-layer-group"></i>
+                        <span>Catalogue</span>
+                        <i class="fa-solid fa-chevron-down nav-arrow"></i>
+                    </button>
+                    <div class="topnav-dropdown-menu">
+                        <a href="#articles" class="topnav-dropdown-item" id="nav-articles">
+                            <i class="fa-solid fa-bullhorn"></i>
+                            <span>Spots Publicitaires</span>
+                        </a>
+                        <a href="#plages-horaires" class="topnav-dropdown-item" id="nav-plages-horaires">
+                            <i class="fa-solid fa-clock"></i>
+                            <span>Plages Horaires</span>
+                        </a>
+                        <a href="#articles-variantes" class="topnav-dropdown-item" id="nav-articles-variantes">
+                            <i class="fa-solid fa-sliders"></i>
+                            <span>Articles Variantes</span>
+                        </a>
+                    </div>
+                </div>
                 <a href="#settings" class="topnav-item" id="nav-settings">
                     <i class="fa-solid fa-gear"></i>
                     <span>Paramètres PDF</span>
@@ -584,9 +597,24 @@
                             </button>
                         </div>
                     </div>
+                </section>
+
+                <!-- 9. ONGLET : ARTICLES VARIANTES -->
+                <section id="pane-articles-variantes" class="tab-pane">
+                    <div class="page-header">
+                        <div class="page-header-left">
+                            <h1><i class="fa-solid fa-sliders"></i> Catalogue des Articles Variantes</h1>
+                            <p>Combinaisons prédéfinies de spots publicitaires, plages horaires, durées et tarifs.</p>
+                        </div>
+                        <div class="page-header-right">
+                            <button class="btn btn-primary" id="btn-creer-article-variante-dx">
+                                <i class="fa-solid fa-plus"></i> Nouvelle Variante
+                            </button>
+                        </div>
+                    </div>
 
                     <div class="grid-wrapper">
-                        <div id="grid-plages-horaires" class="devextreme-grid"></div>
+                        <div id="grid-articles-variantes" class="devextreme-grid"></div>
                     </div>
                 </section>
             </div>
@@ -607,6 +635,8 @@
     <div id="popup-saisir-qte"></div>
     <div id="popup-plage-horaire"></div>
     <div id="popup-form-plage-horaire"></div>
+    <div id="popup-article-variante"></div>
+    <div id="popup-config-devis-ligne"></div>
 
     <!-- Notification Toast -->
     <div id="dx-toast"></div>
@@ -620,10 +650,12 @@
     <script src="js/factures.js"></script>
     <script src="js/clients.js"></script>
     <script src="js/articles.js"></script>
+    <script src="js/articles_variantes.js"></script>
     <script src="js/devis.js"></script>
     <script src="js/livraisons.js"></script>
     <script src="js/plages_horaires.js"></script>
     <script src="js/settings.js"></script>
+    <script src="js/devis_popup_line.js"></script>
     <!-- 3. Bootstrap principal (document.ready) -->
     <script src="js/app.js"></script>
 

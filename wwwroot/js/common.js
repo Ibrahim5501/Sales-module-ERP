@@ -54,6 +54,8 @@ let categoriesData = [];
 let livraisonsData = [];
 var plagesHorairesData = [];
 window.plagesHorairesData = window.plagesHorairesData || [];
+var articlesVariantesData = [];
+window.articlesVariantesData = window.articlesVariantesData || [];
 let internalDevisLines = [];
 let activeTab = 'tableau-bord';
 let toastInstance = null;
@@ -104,9 +106,27 @@ function formatCurrentDate() {
 
 // NAVIGATION SPA
 function setupNavigation() {
-    $(".topnav-item").on("click", function(e) {
+    // Dropdown toggle click
+    $(".topnav-dropdown-toggle").on("click", function(e) {
         e.preventDefault();
-        const targetId = $(this).attr("href").substring(1);
+        e.stopPropagation();
+        $(this).closest(".topnav-dropdown").toggleClass("open");
+    });
+
+    // Close dropdown when clicking outside
+    $(document).on("click", function(e) {
+        if (!$(e.target).closest(".topnav-dropdown").length) {
+            $(".topnav-dropdown").removeClass("open");
+        }
+    });
+
+    // Nav link click
+    $(".topnav-item[href], .topnav-dropdown-item[href]").on("click", function(e) {
+        e.preventDefault();
+        const href = $(this).attr("href");
+        if (!href) return;
+        $(".topnav-dropdown").removeClass("open");
+        const targetId = href.substring(1);
         switchTab(targetId);
     });
 }
@@ -115,8 +135,13 @@ function switchTab(tabId) {
     activeTab = tabId;
     
     // Mettre à jour la classe active sur les liens nav
-    $(".topnav-item").removeClass("active");
-    $(`.topnav-item[href="#${tabId}"]`).addClass("active");
+    $(".topnav-item, .topnav-dropdown-item").removeClass("active");
+    $(`.topnav-item[href="#${tabId}"], .topnav-dropdown-item[href="#${tabId}"]`).addClass("active");
+
+    // Highlight parent dropdown if child selected
+    if (['articles', 'plages-horaires', 'articles-variantes'].includes(tabId)) {
+        $(".topnav-dropdown-toggle").addClass("active");
+    }
 
     // Afficher le bon pane
     $(".tab-pane").removeClass("active");
@@ -139,6 +164,8 @@ function switchTab(tabId) {
         if (typeof chargerLivraisons === 'function') chargerLivraisons();
     } else if (tabId === 'plages-horaires') {
         if (typeof chargerPlagesHoraires === 'function') chargerPlagesHoraires();
+    } else if (tabId === 'articles-variantes') {
+        if (typeof chargerArticlesVariantes === 'function') chargerArticlesVariantes();
     } else if (tabId === 'settings') {
         if (typeof chargerCompanySettings === 'function') chargerCompanySettings();
     }
@@ -147,16 +174,21 @@ function switchTab(tabId) {
 // CHARGEMENT INITIAL DES DONNÉES
 async function chargerToutesLesDonnees() {
     try {
-        const [clientsRes, produitsRes, plagesRes] = await Promise.all([
+        const [clientsRes, produitsRes, plagesRes, variantesRes] = await Promise.all([
             fetch('/api/partenaires'),
             fetch('/api/produits'),
-            fetch('/api/plageshoraires')
+            fetch('/api/plageshoraires'),
+            fetch('/api/articlesvariantes')
         ]);
         clientsData = await clientsRes.json();
         produitsData = await produitsRes.json();
         if (plagesRes.ok) {
             window.plagesHorairesData = await plagesRes.json();
             plagesHorairesData = window.plagesHorairesData;
+        }
+        if (variantesRes.ok) {
+            window.articlesVariantesData = await variantesRes.json();
+            articlesVariantesData = window.articlesVariantesData;
         }
 
         // Charger l'onglet actif par défaut
