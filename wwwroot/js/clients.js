@@ -126,14 +126,17 @@ function initPopupClient() {
         ],
         onShowing: () => {
             // Initialiser ou réinitialiser le formulaire
+            const initialData = pendingClientData || {
+                nom: "",
+                entreprise: "",
+                email: "",
+                telephone: "",
+                adresse: "",
+            };
+            pendingClientData = null;
+
             $("#dx-form-client").dxForm({
-                formData: {
-                    nom: "",
-                    entreprise: "",
-                    email: "",
-                    telephone: "",
-                    adresse: "",
-                },
+                formData: initialData,
                 labelLocation: "top",
                 items: [
                     {
@@ -229,12 +232,22 @@ async function soumettreClient() {
 }
 
 let editingClientId = null;
+let pendingClientData = null;
 
 function ouvrirPopupFormClient(client = null) {
 
     const popup = $("#popup-client").dxPopup("instance");
 
     editingClientId = client ? client.id_Partenaire : null;
+
+    // Store client data to be applied by the onShowing handler
+    pendingClientData = client ? {
+        nom: client.nom,
+        entreprise: client.entreprise,
+        email: client.email,
+        telephone: client.telephone,
+        adresse: client.adresse
+    } : null;
 
     popup.option(
         "title",
@@ -243,21 +256,6 @@ function ouvrirPopupFormClient(client = null) {
 
     popup.show();
 
-    const form = $("#dx-form-client").dxForm("instance");
-
-    form.option("formData", client ? {
-        nom: client.nom,
-        entreprise: client.entreprise,
-        email: client.email,
-        telephone: client.telephone,
-        adresse: client.adresse
-    } : {
-        nom: "",
-        entreprise: "",
-        email: "",
-        telephone: "",
-        adresse: ""
-    });
 }
 
 async function modifierClient() {
@@ -320,9 +318,9 @@ async function supprimerClient(id, nom) {
 
         if (!res.ok) {
 
-            const error = await res.text();
+            const error = await res.json().catch(() => ({}));
 
-            throw new Error(error || "Impossible de supprimer ce client.");
+            throw new Error(error.message || "Impossible de supprimer ce client.");
 
         }
 

@@ -353,31 +353,27 @@ function ouvrirPopupArticle(article = null) {
 
     const popup = $("#popup-article").dxPopup("instance");
 
-    articleFormInstance = article ? article.id_Produit : null;
-
     popup.option(
         "title",
         article ? "Modifier le Spot Publicitaire" : "Ajouter un Spot Publicitaire au catalogue"
     );
 
-    if (!articleFormInstance)
-        return;
-
     popup.show();
 
-    const form = $("#dx-form-client").dxForm("instance");
-
-    articleFormInstance.option("formData", article ? {
-        id_Produit: article.id_Produit,
-        Code: article.code,
-        Designation: article.designation,
-        id_Categorie: article.id_Categorie,
-        Unite: article.unite,
-        prixUniversitaire: article.prixUniversitaire,
-        TauxTVA: article.tauxTVA,
-        QuantiteStock: article.quantiteStock,
-        Actif: article.actif
-    } : {
+    // articleFormInstance is set by initPopupArticle's contentTemplate;
+    // update its formData after the popup is visible.
+    if (articleFormInstance) {
+        articleFormInstance.option("formData", article ? {
+            id_Produit: article.id_Produit,
+            Code: article.code,
+            Designation: article.designation,
+            id_Categorie: article.id_Categorie,
+            Unite: article.unite,
+            prixUniversitaire: article.prixUniversitaire,
+            TauxTVA: article.tauxTVA,
+            QuantiteStock: article.quantiteStock,
+            Actif: article.actif
+        } : {
             id_Produit: null,
             Code: "",
             Designation: "",
@@ -387,9 +383,10 @@ function ouvrirPopupArticle(article = null) {
             TauxTVA: 19,
             QuantiteStock: 999999,
             Actif: true
-    });
+        });
 
-    //articleFormInstance.resetValidation();
+        articleFormInstance.resetValidation();
+    }
 
 }
 
