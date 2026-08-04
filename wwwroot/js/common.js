@@ -138,7 +138,6 @@ function switchTab(tabId) {
     } else if (tabId === 'livraisons') {
         if (typeof chargerLivraisons === 'function') chargerLivraisons();
     } else if (tabId === 'plages-horaires') {
-        console.log("Chargement des plages horaires...");
         if (typeof chargerPlagesHoraires === 'function') chargerPlagesHoraires();
     } else if (tabId === 'settings') {
         if (typeof chargerCompanySettings === 'function') chargerCompanySettings();
@@ -148,7 +147,6 @@ function switchTab(tabId) {
 // CHARGEMENT INITIAL DES DONNÉES
 async function chargerToutesLesDonnees() {
     try {
-        console.log("Chargement des données initiales...");
         const [clientsRes, produitsRes, plagesRes] = await Promise.all([
             fetch('/api/partenaires'),
             fetch('/api/produits'),

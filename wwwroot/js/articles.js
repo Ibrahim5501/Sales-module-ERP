@@ -40,7 +40,8 @@ async function chargerProduits() {
                 },
                 {
                     dataField: "designation",
-                    caption: "Désignation / Nom du Spot"
+                    caption: "Désignation / Nom du Spot",
+                    widget: 300
                 },
                 {
                     dataField: "nomCategorie",
@@ -93,6 +94,30 @@ async function chargerProduits() {
                             }
                         }).appendTo(container);
                     }
+                },
+                {
+                    type: "buttons",
+                    caption: "Actions",
+                    width: 120,
+                    buttons: [
+                        {
+                            hint: "Modifier",
+                            icon: "edit",
+                            onClick: function (e) {
+                                ouvrirPopupArticle(e.row.data);
+                            }
+                        },
+                        {
+                            hint: "Supprimer",
+                            icon: "trash",
+                            onClick: function (e) {
+                                supprimerArticle(
+                                    e.row.data.id_Produit,
+                                    e.row.data.designation
+                                );
+                            }
+                        }
+                    ]
                 }
             ]
         });
@@ -166,6 +191,8 @@ function initPopupCategorie() {
     });
 }
 
+let articleFormInstance = null;
+
 // CREER SPOT PUBLICITAIRE (POPUP DX)
 function initPopupArticle() {
     $("#popup-article").dxPopup({
@@ -175,36 +202,16 @@ function initPopupArticle() {
         visible: false,
         dragEnabled: true,
         showCloseButton: true,
+
         contentTemplate: (container) => {
-            $("<div id='dx-form-article'>").appendTo(container);
-        },
-        toolbarItems: [
-            {
-                shortcut: "done",
-                location: "after",
-                toolbar: "bottom",
-                widget: "dxButton",
-                options: {
-                    text: "Créer le Spot Publicitaire",
-                    type: "default",
-                    onClick: () => soumettreArticle()
-                }
-            },
-            {
-                shortcut: "cancel",
-                location: "after",
-                toolbar: "bottom",
-                widget: "dxButton",
-                options: {
-                    text: "Annuler",
-                    onClick: () => $("#popup-article").dxPopup("instance").hide()
-                }
-            }
-        ],
-        onShowing: async () => {
-            await chargerCategories();
-            $("#dx-form-article").dxForm({
+
+            const formContainer = $("<div id='dx-form-article'>")
+                .appendTo(container);
+
+            articleFormInstance = formContainer.dxForm({
+                labelLocation: "top",
                 formData: {
+                    id_Produit: null,
                     Code: "",
                     Designation: "",
                     id_Categorie: null,
@@ -214,7 +221,6 @@ function initPopupArticle() {
                     QuantiteStock: 999999,
                     Actif: true
                 },
-                labelLocation: "top",
                 items: [
                     {
                         dataField: "Code",
@@ -242,7 +248,6 @@ function initPopupArticle() {
                         items: [
                             {
                                 dataField: "id_Categorie",
-                                colSpan: 1,
                                 label: {
                                     text: "Catégorie"
                                 },
@@ -262,7 +267,10 @@ function initPopupArticle() {
                                     icon: "plus",
                                     text: "Catégorie",
                                     type: "default",
-                                    onClick: () => $("#popup-categorie").dxPopup("instance").show()
+                                    onClick: () =>
+                                        $("#popup-categorie")
+                                            .dxPopup("instance")
+                                            .show()
                                 }
                             }
                         ]
@@ -272,11 +280,7 @@ function initPopupArticle() {
                         label: {
                             text: "Durée (en secondes)"
                         },
-                        editorType: "dxTextBox",
-                        editorOptions: {
-                            value: "60",
-                            placeholder: "ex: 60"
-                        }
+                        editorType: "dxTextBox"
                     },
                     {
                         dataField: "prixUniversitaire",
@@ -303,26 +307,78 @@ function initPopupArticle() {
                                 { value: 19, text: "19 %" }
                             ],
                             valueExpr: "value",
-                            displayExpr: "text",
-                            value: 19
-                        },
-                        validationRules: [{
-                            type: "required",
-                            message: "Le taux de TVA est requis."
-                        }]
+                            displayExpr: "text"
+                        }
                     }
                 ]
-            });
+            }).dxForm("instance");
+        },
+
+        toolbarItems: [
+            {
+                location: "after",
+                toolbar: "bottom",
+                widget: "dxButton",
+                options: {
+                    text: "Créer le Spot Publicitaire",
+                    type: "default",
+                    onClick: () => soumettreArticle()
+                }
+            },
+            {
+                location: "after",
+                toolbar: "bottom",
+                widget: "dxButton",
+                options: {
+                    text: "Annuler",
+                    onClick: () =>
+                        $("#popup-article")
+                            .dxPopup("instance")
+                            .hide()
+                }
+            }
+        ],
+
+        onShowing: async () => {
+            await chargerCategories();
+
+            if (articleFormInstance) {
+                articleFormInstance.option("items[2].items[0].editorOptions.dataSource", categoriesData);
+            }
         }
     });
 }
 
-function ouvrirPopupArticle() {
-    const popup = $("#popup-article").dxPopup("instance");
-    const form = $("#dx-form-article").dxForm("instance");
+function ouvrirPopupArticle(article = null) {
 
-    if (form) {
-        form.option("formData", {
+    const popup = $("#popup-article").dxPopup("instance");
+
+    articleFormInstance = article ? article.id_Produit : null;
+
+    popup.option(
+        "title",
+        article ? "Modifier le Spot Publicitaire" : "Ajouter un Spot Publicitaire au catalogue"
+    );
+
+    if (!articleFormInstance)
+        return;
+
+    popup.show();
+
+    const form = $("#dx-form-client").dxForm("instance");
+
+    articleFormInstance.option("formData", article ? {
+        id_Produit: article.id_Produit,
+        Code: article.code,
+        Designation: article.designation,
+        id_Categorie: article.id_Categorie,
+        Unite: article.unite,
+        prixUniversitaire: article.prixUniversitaire,
+        TauxTVA: article.tauxTVA,
+        QuantiteStock: article.quantiteStock,
+        Actif: article.actif
+    } : {
+            id_Produit: null,
             Code: "",
             Designation: "",
             id_Categorie: null,
@@ -331,12 +387,10 @@ function ouvrirPopupArticle() {
             TauxTVA: 19,
             QuantiteStock: 999999,
             Actif: true
-        });
+    });
 
-        form.resetValidation();
-    }
+    //articleFormInstance.resetValidation();
 
-    popup.show();
 }
 
 async function creerCategorie() {
@@ -368,38 +422,115 @@ async function creerCategorie() {
 }
 
 async function soumettreArticle() {
-    const form = $("#dx-form-article").dxForm("instance");
-    const result = form.validate();
-    
+
+    if (!articleFormInstance)
+        return;
+
+    const result = articleFormInstance.validate();
+
     if (!result.isValid)
         return;
-    
-    const payload = form.option("formData");
-    if (!payload.Unite) payload.Unite = "Secondes";
-    payload.QuantiteStock = 999999; // bypass stock system for spots
+
+
+    const payload = articleFormInstance.option("formData");
+
+    if (!payload.Unite)
+        payload.Unite = "Secondes";
+
+
+    payload.QuantiteStock = 999999;
+
+
+    const isEdit = payload.id_Produit != null;
+
+
+    const url = isEdit
+        ? `/api/produits/${payload.id_Produit}`
+        : "/api/produits";
+
+
+    const method = isEdit ? "PUT" : "POST";
+
 
     try {
-        const res = await fetch('/api/produits', {
-            method: 'POST',
+
+        const res = await fetch(url, {
+            method,
             headers: {
-                'Content-Type': 'application/json'
+                "Content-Type": "application/json"
             },
             body: JSON.stringify(payload)
         });
+
+
         if (!res.ok) {
             const err = await res.json();
-            throw new Error(err.message || "Erreur de création du spot publicitaire.");
+            throw new Error(
+                err.message ||
+                "Erreur lors de l'enregistrement."
+            );
         }
-        showToast("Spot publicitaire créé avec succès !");
-        $("#popup-article").dxPopup("instance").hide();
+
+
+        showToast(
+            isEdit
+                ? "Spot publicitaire modifié avec succès !"
+                : "Spot publicitaire créé avec succès !"
+        );
+
+
+        $("#popup-article")
+            .dxPopup("instance")
+            .hide();
+
+
         chargerToutesLesDonnees();
-        if (activeTab === 'articles')
+
+        if (activeTab === "articles")
             chargerProduits();
-        const grid = $("#dx-grid-devis-lines").dxDataGrid("instance");
-        if (grid) {
+
+
+        const grid = $("#dx-grid-devis-lines")
+            .dxDataGrid("instance");
+
+        if (grid)
             grid.refresh();
-        }
+
+
     } catch (err) {
+
+        showToast(err.message, true);
+
+    }
+}
+
+async function supprimerArticle(id, designation) {
+
+    if (!confirm(`Supprimer le spot "${designation}" ?`))
+        return;
+
+    try {
+
+        const res = await fetch(`/api/produits/${id}`, {
+            method: "DELETE"
+        });
+
+        if (!res.ok) {
+
+            const err = await res.json();
+            throw new Error(err.message || "Erreur lors de la suppression.");
+        }
+
+        showToast("Spot publicitaire supprimé avec succès !");
+
+        chargerToutesLesDonnees();
+
+        if (activeTab === "articles")
+            chargerProduits();
+
+    }
+    catch (err) {
+
         showToast(err.message, true);
     }
 }

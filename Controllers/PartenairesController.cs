@@ -115,5 +115,37 @@ namespace example2.Controllers
 
             return Ok(updatedDto);
         }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(int id)
+        {
+            var client = await _context.Partenaires
+                .Include(p => p.Devis)
+                .Include(p => p.Commandes)
+                .Include(p => p.Factures)
+                .FirstOrDefaultAsync(p => p.Id_Partenaire == id);
+
+            if (client == null)
+                return NotFound(new { message = "Client non trouvé." });
+
+            // Prevent deletion if the client is used
+            if ((client.Devis?.Any() ?? false) ||
+                (client.Commandes?.Any() ?? false) ||
+                (client.Factures?.Any() ?? false))
+            {
+                return BadRequest(new
+                {
+                    message = "Impossible de supprimer ce client car il est lié à un ou plusieurs devis, commandes ou factures."
+                });
+            }
+
+            _context.Partenaires.Remove(client);
+            await _context.SaveChangesAsync();
+
+            return Ok(new
+            {
+                message = "Client supprimé avec succès."
+            });
+        }
     }
 }

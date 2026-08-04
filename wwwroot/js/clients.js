@@ -50,6 +50,30 @@ async function chargerClients() {
                     dataField: "adresse",
                     caption: "Adresse Postale"
                 },
+                {
+                    type: "buttons",
+                    caption: "Actions",
+                    width: 120,
+                    buttons: [
+                        {
+                            hint: "Modifier",
+                            icon: "edit",
+                            onClick: function (e) {
+                                ouvrirPopupFormClient(e.row.data);
+                            }
+                        },
+                        {
+                            hint: "Supprimer",
+                            icon: "trash",
+                            onClick: function (e) {
+                                supprimerClient(
+                                    e.row.data.id_Partenaire,
+                                    e.row.data.nom
+                                );
+                            }
+                        }
+                    ]
+                }
             ]
         });
     } catch (err) {
@@ -79,7 +103,14 @@ function initPopupClient() {
                 options: {
                     text: "Enregistrer",
                     type: "default",
-                    onClick: () => soumettreClient()
+                    onClick: () => {
+
+                        if (editingClientId)
+                            modifierClient();
+                        else
+                            soumettreClient();
+
+                    }
                 }
             },
             {
@@ -195,4 +226,118 @@ async function soumettreClient() {
     } catch (err) {
         showToast(err.message, true);
     }
+}
+
+let editingClientId = null;
+
+function ouvrirPopupFormClient(client = null) {
+
+    const popup = $("#popup-client").dxPopup("instance");
+
+    editingClientId = client ? client.id_Partenaire : null;
+
+    popup.option(
+        "title",
+        client ? "Modifier le Client" : "Créer une fiche Client"
+    );
+
+    popup.show();
+
+    const form = $("#dx-form-client").dxForm("instance");
+
+    form.option("formData", client ? {
+        nom: client.nom,
+        entreprise: client.entreprise,
+        email: client.email,
+        telephone: client.telephone,
+        adresse: client.adresse
+    } : {
+        nom: "",
+        entreprise: "",
+        email: "",
+        telephone: "",
+        adresse: ""
+    });
+}
+
+async function modifierClient() {
+
+    const form = $("#dx-form-client").dxForm("instance");
+
+    const result = form.validate();
+
+    if (!result.isValid)
+        return;
+
+    const payload = form.option("formData");
+
+    try {
+
+        const res = await fetch(`/api/partenaires/${editingClientId}`, {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!res.ok)
+            throw new Error("Erreur lors de la modification.");
+
+        showToast("Client modifié avec succès !");
+
+        $("#popup-client").dxPopup("instance").hide();
+
+        editingClientId = null;
+
+        await chargerToutesLesDonnees();
+
+        if (activeTab === "clients")
+            chargerClients();
+
+    }
+    catch (err) {
+
+        showToast(err.message, true);
+
+    }
+}
+
+async function supprimerClient(id, nom) {
+
+    const ok = confirm(
+        `Supprimer le client "${nom}" ?`
+    );
+
+    if (!ok)
+        return;
+
+    try {
+
+        const res = await fetch(`/api/partenaires/${id}`, {
+            method: "DELETE"
+        });
+
+        if (!res.ok) {
+
+            const error = await res.text();
+
+            throw new Error(error || "Impossible de supprimer ce client.");
+
+        }
+
+        showToast("Client supprimé avec succès !");
+
+        await chargerToutesLesDonnees();
+
+        if (activeTab === "clients")
+            chargerClients();
+
+    }
+    catch (err) {
+
+        showToast(err.message, true);
+
+    }
+
 }
