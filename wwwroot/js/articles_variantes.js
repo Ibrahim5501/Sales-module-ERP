@@ -14,15 +14,8 @@ async function chargerArticlesVariantes() {
         articlesVariantesData = await res.json();
         window.articlesVariantesData = articlesVariantesData;
 
-        const existingGrid = $("#grid-articles-variantes").dxDataGrid("instance");
-        if (existingGrid) {
-            existingGrid.option("dataSource", articlesVariantesData);
-            existingGrid.refresh();
-            return;
-        }
-
         $("#grid-articles-variantes").dxDataGrid({
-            dataSource: articlesVariantesData,
+            dataSource: window.articlesVariantesData,
             allowColumnResizing: true,
             columnResizingMode: "widget",
             columnAutoWidth: true,
@@ -68,7 +61,7 @@ async function chargerArticlesVariantes() {
                     width: 160,
                     cellTemplate: (container, options) => {
                         const debut = options.data.heureDebut || "";
-                        const fin   = options.data.heureFin   || "";
+                        const fin = options.data.heureFin || "";
                         $("<div>")
                             .append($("<span class='badge badge-blue'>").text(options.value))
                             .append(debut ? $("<span class='text-muted' style='font-size:11px; margin-left:6px;'>").text(`${debut}–${fin}`) : "")
@@ -117,13 +110,13 @@ async function chargerArticlesVariantes() {
                                     method: "PUT",
                                     headers: { "Content-Type": "application/json" },
                                     body: JSON.stringify({
-                                        designation:     current.designation,
-                                        id_Produit:      current.id_Produit,
+                                        designation: current.designation,
+                                        id_Produit: current.id_Produit,
                                         id_PlageHoraire: current.id_PlageHoraire,
-                                        prixVariante:    current.prixVariante,
-                                        tauxTVA:         current.tauxTVA,
-                                        dureeDefaut:     current.dureeDefaut,
-                                        actif:           e.value
+                                        prixVariante: current.prixVariante,
+                                        tauxTVA: current.tauxTVA,
+                                        dureeDefaut: current.dureeDefaut,
+                                        actif: e.value
                                     })
                                 });
                                 showToast(e.value ? "Variante activée." : "Variante désactivée.");
@@ -150,6 +143,7 @@ async function chargerArticlesVariantes() {
                 }
             ]
         });
+        
     } catch (err) {
         console.error(err);
         showToast("Erreur de chargement des articles variantes.", true);

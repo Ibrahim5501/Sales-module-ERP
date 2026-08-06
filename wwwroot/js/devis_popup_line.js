@@ -1,6 +1,6 @@
 // --- POPUP CONFIGURATION LIGNE DE DEVIS ---
-let configLigneFormInstance = null;
-let currentEditingLineIndex = null;
+if (typeof configLigneFormInstance === 'undefined') { var configLigneFormInstance = null; }
+if (typeof currentEditingLineIndex === 'undefined') { var currentEditingLineIndex = null; }
 
 function initPopupConfigDevisLigne() {
     $("#popup-config-devis-ligne").dxPopup({
@@ -37,13 +37,13 @@ function initPopupConfigDevisLigne() {
                         label: { text: "1. Sélectionner un Spot Publicitaire" },
                         editorType: "dxSelectBox",
                         editorOptions: {
-                            dataSource: produitsData.filter(p => p.actif !== false),
+                            dataSource: (produitsData || []).filter(p => p.actif !== false),
                             valueExpr: "id_Produit",
                             displayExpr: item => item ? `${item.designation} (${item.code})` : "",
                             searchEnabled: true,
                             placeholder: "-- Sélectionner le spot --",
                             onValueChanged(e) {
-                                const prod = produitsData.find(p => p.id_Produit === e.value);
+                                const prod = (produitsData || []).find(p => p.id_Produit === e.value);
                                 if (!prod) return;
 
                                 // Filter variants for this spot
@@ -81,14 +81,14 @@ function initPopupConfigDevisLigne() {
                                 const variante = (window.articlesVariantesData || []).find(v => v.id_ArticleVariante === e.value);
                                 if (!variante) return;
 
-                                // Prefill from variant (variant price replaces spot base price; duration is prefilled but editable)
+                                // Prefill from variant
                                 configLigneFormInstance.updateData("nomVariante", variante.designation);
                                 configLigneFormInstance.updateData("prixUniversitaire", variante.prixVariante);
                                 configLigneFormInstance.updateData("TauxTVA", variante.tauxTVA);
                                 configLigneFormInstance.updateData("quantite", variante.dureeDefaut || 10);
                                 const plageTxt = `${variante.nomPlageHoraire} (${variante.heureDebut}-${variante.heureFin})`;
                                 configLigneFormInstance.updateData("nomPlage", variante.nomPlageHoraire);
-                                configLigneFormInstance.updateData("emission", plageTxt);
+                                configLigneFormInstance.updateData("emission", variante.id_PlageHoraire);
                             }
                         }
                     },
@@ -156,8 +156,19 @@ function initPopupConfigDevisLigne() {
                         dataField: "emission",
                         colSpan: 1,
                         label: { text: "Plage horaire / Émission" },
-                        editorType: "dxTextBox",
-                        editorOptions: { placeholder: "ex: Prime Time (20:00-22:30)" }
+                        editorType: "dxSelectBox",
+                        editorOptions: {
+                            dataSource: (plagesHorairesData || []).filter(p => p.actif != false),
+                            valueExpr: "id_PlageHoraire",
+                            displayExpr: item => item ? `${item.nom} (${item.heureDebut}-${item.heureFin})` : "",
+                            searchEnabled: true,
+                            placeholder: "-- Sélectionner une plage horaire --",
+                            onValueChanged(e) {
+                                const plage = (plagesHorairesData || []).find(p => p.id_PlageHoraire === e.value);
+                                if (!plage) return;
+                                configLigneFormInstance.updateData("nomPlage", plage.nom);
+                            }
+                        }
                     }
                 ]
             }).dxForm("instance");
@@ -181,7 +192,10 @@ function initPopupConfigDevisLigne() {
                 widget: "dxButton",
                 options: {
                     text: "Annuler",
-                    onClick: () => $("#popup-config-devis-ligne").dxPopup("instance").hide()
+                    onClick: () => {
+                        const p = $("#popup-config-devis-ligne").dxPopup("instance");
+                        if (p) p.hide();
+                    }
                 }
             }
         ]
@@ -191,11 +205,17 @@ function initPopupConfigDevisLigne() {
 function ouvrirPopupConfigDevisLigne(rowIndex = null) {
     currentEditingLineIndex = rowIndex;
     const popup = $("#popup-config-devis-ligne").dxPopup("instance");
+    if (!popup) return;
 
     popup.option("title", rowIndex !== null ? "Modifier la ligne de devis" : "Ajouter une ligne au devis");
     popup.show();
 
     if (configLigneFormInstance) {
+        const prodEditor = configLigneFormInstance.getEditor("produitId");
+        if (prodEditor) {
+            prodEditor.option("dataSource", (produitsData || []).filter(p => p.actif !== false));
+        }
+
         if (rowIndex !== null && internalDevisLines[rowIndex]) {
             const line = internalDevisLines[rowIndex];
             const spotId = line.produitId;
@@ -215,7 +235,7 @@ function ouvrirPopupConfigDevisLigne(rowIndex = null) {
                 quantite: line.quantite,
                 remise: line.remise || 0,
                 typeRemise: line.typeRemise || "Pourcentage",
-                TauxTVA: line.TauxTVA !== undefined ? line.TauxTVA : 19,
+                TauxTVA: line.TauxTVA !== undefined ? line.TauxTVA : (line.tauxTVA !== undefined ? line.tauxTVA : 19),
                 emission: line.emission || ""
             });
         } else {
@@ -236,7 +256,9 @@ function ouvrirPopupConfigDevisLigne(rowIndex = null) {
                 emission: ""
             });
         }
-        configLigneFormInstance.resetValidation();
+        if (typeof configLigneFormInstance.resetValidation === "function") {
+            configLigneFormInstance.resetValidation();
+        }
     }
 }
 
@@ -246,7 +268,7 @@ function validerLigneDevisDepuisPopup() {
     if (!res.isValid) return;
 
     const data = configLigneFormInstance.option("formData");
-    const spot = produitsData.find(p => p.id_Produit === data.produitId);
+    const spot = (produitsData || []).find(p => p.id_Produit === data.produitId);
     const lineItem = {
         produitId: data.produitId,
         varianteId: data.varianteId || null,
@@ -273,5 +295,6 @@ function validerLigneDevisDepuisPopup() {
         grid.refresh();
     }
     recalculerTotauxDevisPopup();
-    $("#popup-config-devis-ligne").dxPopup("instance").hide();
+    const popup = $("#popup-config-devis-ligne").dxPopup("instance");
+    if (popup) popup.hide();
 }

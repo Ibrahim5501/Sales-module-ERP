@@ -185,22 +185,9 @@ async function chargerPlagesHoraires() {
         if (!res.ok) throw new Error("Erreur de chargement des plages horaires.");
 
         window.plagesHorairesData = await res.json();
-        if (typeof plagesHorairesData !== "undefined") {
-            plagesHorairesData = window.plagesHorairesData;
-        }
-
-        // Si la grille n'existe pas dans le DOM, sortir
-        if (!$("#grid-plages-horaires").length) return;
-
-        const existingGrid = $("#grid-plages-horaires").dxDataGrid("instance");
-        if (existingGrid) {
-            existingGrid.option("dataSource", window.plagesHorairesData);
-            existingGrid.refresh();
-            return;
-        }
 
         $("#grid-plages-horaires").dxDataGrid({
-            dataSource: plagesHorairesData,
+            dataSource: window.plagesHorairesData,
             keyExpr: "id_PlageHoraire",
             showBorders: true,
             hoverStateEnabled: true,
@@ -270,6 +257,7 @@ async function chargerPlagesHoraires() {
                 }
             ]
         });
+
 
     } catch (err) {
         console.error(err);
