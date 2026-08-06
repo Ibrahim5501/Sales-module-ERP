@@ -45,7 +45,6 @@ namespace example2.Controllers
             return Ok(list.Select(MapToDto));
         }
 
-        // GET: api/Devis/5
         [HttpGet("{id}")]
         public async Task<ActionResult<DevisDto>> GetById(int id)
         {
@@ -95,6 +94,8 @@ namespace example2.Controllers
                 ModePaiement = dto.ModePaiement ?? "Virement Bancaire",
                 RemiseGlobale = dto.RemiseGlobale,
                 TypeRemiseGlobale = string.IsNullOrEmpty(dto.TypeRemiseGlobale) ? "Pourcentage" : dto.TypeRemiseGlobale,
+                DateDebutDiffusion = dto.DateDebutDiffusion,
+                DateFinDiffusion = dto.DateFinDiffusion,
                 Id_User = currentUserId,
                 DateDevis = now,
                 DateValidite = dto.DateValidite,
@@ -102,7 +103,8 @@ namespace example2.Controllers
                 Lignes = dto.Lignes.Select(l => new DevisLigne
                 {
                     Description = l.Description,
-                    Quantite = l.Quantite,
+                    Quantite = l.Quantite > 0 ? l.Quantite : 1,
+                    DureeSecondes = l.DureeSecondes > 0 ? l.DureeSecondes : 30,
                     PrixUniversitaire = l.PrixUniversitaire,
                     TauxTVA = l.TauxTVA,
                     Remise = l.Remise,
@@ -155,13 +157,16 @@ namespace example2.Controllers
             existing.ModePaiement = dto.ModePaiement ?? existing.ModePaiement;
             existing.RemiseGlobale = dto.RemiseGlobale;
             existing.TypeRemiseGlobale = string.IsNullOrEmpty(dto.TypeRemiseGlobale) ? "Pourcentage" : dto.TypeRemiseGlobale;
+            existing.DateDebutDiffusion = dto.DateDebutDiffusion;
+            existing.DateFinDiffusion = dto.DateFinDiffusion;
 
             _context.DevisLignes.RemoveRange(existing.Lignes);
 
             existing.Lignes = dto.Lignes.Select(l => new DevisLigne
             {
                 Description = l.Description,
-                Quantite = l.Quantite,
+                Quantite = l.Quantite > 0 ? l.Quantite : 1,
+                DureeSecondes = l.DureeSecondes > 0 ? l.DureeSecondes : 30,
                 PrixUniversitaire = l.PrixUniversitaire,
                 TauxTVA = l.TauxTVA,
                 Remise = l.Remise,
@@ -333,6 +338,8 @@ namespace example2.Controllers
                 NumeroCommande = "",
                 Id_Partenaire = devis.Id_Partenaire,
                 Id_Devis = devis.Id_Devis,
+                DateDebutDiffusion = devis.DateDebutDiffusion,
+                DateFinDiffusion = devis.DateFinDiffusion,
                 DateCommande = DateTime.Now,
                 Statut = CommandeStatut.EnAttente,
                 MontantHT = devis.MontantHT,
@@ -342,7 +349,8 @@ namespace example2.Controllers
                 {
                     Description = l.Description,
                     Id_Produit = l.Id_Produit,
-                    Quantite = l.Quantite,
+                    Quantite = l.Quantite > 0 ? l.Quantite : 1,
+                    DureeSecondes = l.DureeSecondes > 0 ? l.DureeSecondes : 30,
                     PrixUniversitaire = l.PrixUniversitaire,
                     Remise = l.Remise,
                     TauxTVA = l.TauxTVA,
@@ -375,6 +383,8 @@ namespace example2.Controllers
                 NumeroDevis = devis.NumeroDevis,
                 NumeroCommande = commande.NumeroCommande,
                 DateCommande = commande.DateCommande,
+                DateDebutDiffusion = commande.DateDebutDiffusion,
+                DateFinDiffusion = commande.DateFinDiffusion,
                 MontantHT = commande.MontantHT,
                 MontantTTC = commande.MontantTTC,
                 Statut = commande.Statut,
@@ -383,6 +393,7 @@ namespace example2.Controllers
                     Id_CommandeLigne = l.Id_CommandeLigne,
                     Description = l.Description,
                     Quantite = l.Quantite,
+                    DureeSecondes = l.DureeSecondes,
                     PrixUniversitaire = l.PrixUniversitaire,
                     TauxTVA = l.TauxTVA,
                     Remise = l.Remise,
@@ -400,6 +411,10 @@ namespace example2.Controllers
 
             foreach (var ligne in devis.Lignes)
             {
+                int duree = ligne.DureeSecondes > 0 ? ligne.DureeSecondes : 30;
+                decimal qte = ligne.Quantite > 0 ? ligne.Quantite : 1m;
+                decimal montantBrutLigne = ligne.PrixUniversitaire * duree * qte;
+
                 decimal montantRemiseLigne = 0;
                 if (ligne.TypeRemise == "MontantFixe")
                 {
@@ -407,10 +422,10 @@ namespace example2.Controllers
                 }
                 else
                 {
-                    montantRemiseLigne = (ligne.PrixUniversitaire * ligne.Quantite) * (ligne.Remise / 100m);
+                    montantRemiseLigne = montantBrutLigne * (ligne.Remise / 100m);
                 }
 
-                ligne.MontantHT = (ligne.PrixUniversitaire * ligne.Quantite) - montantRemiseLigne;
+                ligne.MontantHT = montantBrutLigne - montantRemiseLigne;
                 if (ligne.MontantHT < 0) ligne.MontantHT = 0;
 
                 decimal tvaLigne = ligne.MontantHT * (ligne.TauxTVA / 100m);
@@ -451,6 +466,8 @@ namespace example2.Controllers
                 ModePaiement = d.ModePaiement ?? "Virement Bancaire",
                 RemiseGlobale = d.RemiseGlobale,
                 TypeRemiseGlobale = string.IsNullOrEmpty(d.TypeRemiseGlobale) ? "Pourcentage" : d.TypeRemiseGlobale,
+                DateDebutDiffusion = d.DateDebutDiffusion,
+                DateFinDiffusion = d.DateFinDiffusion,
                 DateDevis = d.DateDevis,
                 DateValidite = d.DateValidite,
                 Statut = d.Statut,
@@ -465,6 +482,7 @@ namespace example2.Controllers
                     Id_DevisLigne = l.Id_DevisLigne,
                     Description = l.Description,
                     Quantite = l.Quantite,
+                    DureeSecondes = l.DureeSecondes,
                     PrixUniversitaire = l.PrixUniversitaire,
                     TauxTVA = l.TauxTVA,
                     Remise = l.Remise,

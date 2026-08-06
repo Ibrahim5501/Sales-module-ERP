@@ -12,6 +12,7 @@ namespace example2.DTOs
         public decimal TauxTVA { get; set; }
 
         public decimal QuantiteStock { get; set; }
+        public int DureeSecondes { get; set; } = 30;
 
         public int Id_Categorie { get; set; }
 

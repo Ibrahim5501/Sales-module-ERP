@@ -137,6 +137,13 @@ function renderCommandeActions(container, options) {
         .on("click", () => ouvrirDetailCommande(c.id_Commande))
         .appendTo($wrapper);
 
+    // Bouton Planifier Spots
+    $("<button>").addClass("action-btn-dx btn-invoice")
+        .html("<i class='fa-solid fa-calendar-days'></i> Planifier Spots")
+        .attr("title", "Planifier les spots publicitaires")
+        .on("click", () => ouvrirPopupPlanificationCommande(c.id_Commande))
+        .appendTo($wrapper);
+
     // Bouton Télécharger PDF
     $("<button>")
         .addClass("action-btn-dx btn-view")
@@ -303,6 +310,11 @@ async function ouvrirDetailCommande(id) {
                         <i class="fa-solid fa-check"></i> Valider
                     </button>
 
+                    <button class="action-btn-dx btn-invoice"
+                            onclick="ouvrirPopupPlanificationCommande(${c.id_Commande})">
+                        <i class="fa-solid fa-calendar-days"></i> Planifier Spots
+                    </button>
+
                     <button class="action-btn-dx btn-view"
                             onclick="window.open('/api/commandes/${c.id_Commande}/pdf', '_blank')">
                         <i class="fa-solid fa-file-pdf"></i> Télécharger PDF
@@ -324,6 +336,11 @@ async function ouvrirDetailCommande(id) {
                     </button>
                     ` : ""}
 
+                    <button class="action-btn-dx btn-invoice"
+                            onclick="ouvrirPopupPlanificationCommande(${c.id_Commande})">
+                        <i class="fa-solid fa-calendar-days"></i> Planifier Spots
+                    </button>
+
                     <button class="action-btn-dx btn-view"
                             onclick="window.open('/api/commandes/${c.id_Commande}/pdf', '_blank')">
                         <i class="fa-solid fa-file-pdf"></i> Télécharger PDF
@@ -332,15 +349,19 @@ async function ouvrirDetailCommande(id) {
             `;
         }
         c.lignes.forEach(l => {
-            const remiseStr = l.remise > 0 ? `(-${l.remise}%)` : '';
+            const remiseVal = Number(l.remise || 0);
+            const remiseStr = remiseVal > 0 ? (l.typeRemise === "MontantFixe" ? `(-${remiseVal.toFixed(3)} DT)` : `(-${remiseVal}%)`) : '';
             const emissionBadge = l.emission
                 ? `<span class="badge badge-blue" style="margin-left:6px; font-size:11px;">${l.emission}</span>`
                 : '';
+            const qte = l.quantite || 1;
+            const duree = l.dureeSecondes || 30;
+            const pu = formatCurrency(l.prixUniversitaire || 0);
             linesHtml += `
                 <div class="detail-item-row" style="display:flex; justify-content:space-between; padding:8px 12px; background:var(--bg-app); border-radius:4px; margin-bottom:8px; font-size:13px;">
                     <div style="display:flex; flex-direction:column;">
-                        <div><strong>${l.designation}</strong>${emissionBadge}</div>
-                        <span style="font-size:11px; color:var(--text-muted);">${l.quantite} sec × ${formatCurrency(l.prixUniversitaire)} ${remiseStr} &mdash; TVA ${l.tauxTVA}%</span>
+                        <div><strong>${l.designation || 'Spot Publicitaire'}</strong>${emissionBadge}</div>
+                        <span style="font-size:11px; color:var(--text-muted);">${qte} spot(s) × ${duree}s @ ${pu}/s ${remiseStr} &mdash; TVA ${l.tauxTVA}%</span>
                     </div>
                     <strong style="align-self:center;">${formatCurrency(l.montantTTC)}</strong>
                 </div>

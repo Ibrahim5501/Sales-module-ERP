@@ -25,6 +25,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<CompanySettings> CompanySettings => Set<CompanySettings>();
     public DbSet<PlageHoraire> PlagesHoraires => Set<PlageHoraire>();
     public DbSet<ArticleVariante> ArticlesVariantes => Set<ArticleVariante>();
+    public DbSet<PlanificationSpot> PlanificationSpots => Set<PlanificationSpot>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -209,5 +210,34 @@ public class ApplicationDbContext : DbContext
             .WithMany()
             .HasForeignKey(av => av.Id_PlageHoraire)
             .OnDelete(DeleteBehavior.Restrict);
+
+
+
+        //----------------------------------------------------
+        // PlanificationSpot Relationships
+        //----------------------------------------------------
+        modelBuilder.Entity<PlanificationSpot>()
+            .HasOne(ps => ps.Commande)
+            .WithMany(c => c.Planifications)
+            .HasForeignKey(ps => ps.Id_Commande)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PlanificationSpot>()
+            .HasOne(ps => ps.CommandeLigne)
+            .WithMany()
+            .HasForeignKey(ps => ps.Id_CommandeLigne)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<PlanificationSpot>()
+            .HasOne(ps => ps.Produit)
+            .WithMany()
+            .HasForeignKey(ps => ps.Id_Produit)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PlanificationSpot>()
+            .HasOne(ps => ps.PlageHoraire)
+            .WithMany()
+            .HasForeignKey(ps => ps.Id_PlageHoraire)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }

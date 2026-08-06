@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using example2.Data;
 
@@ -11,9 +12,10 @@ using example2.Data;
 namespace example2.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260806120058_ChangeDevisPlageHoraireToDateInterval")]
+    partial class ChangeDevisPlageHoraireToDateInterval
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -153,9 +155,6 @@ namespace example2.Migrations
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("DureeSecondes")
-                        .HasColumnType("int");
 
                     b.Property<string>("Emission")
                         .HasColumnType("nvarchar(max)");
@@ -323,9 +322,6 @@ namespace example2.Migrations
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("DureeSecondes")
-                        .HasColumnType("int");
 
                     b.Property<string>("Emission")
                         .HasColumnType("nvarchar(max)");
@@ -623,9 +619,6 @@ namespace example2.Migrations
                     b.Property<string>("Designation")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("DureeSecondes")
-                        .HasColumnType("int");
 
                     b.Property<int>("Id_Categorie")
                         .HasColumnType("int");

@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using example2.Data;
 
@@ -11,9 +12,10 @@ using example2.Data;
 namespace example2.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260806103259_AddPlanificationSpot")]
+    partial class AddPlanificationSpot
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -100,16 +102,13 @@ namespace example2.Migrations
                     b.Property<DateTime>("DateCommande")
                         .HasColumnType("datetime2");
 
-                    b.Property<DateTime?>("DateDebutDiffusion")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("DateFinDiffusion")
-                        .HasColumnType("datetime2");
-
                     b.Property<int>("Id_Devis")
                         .HasColumnType("int");
 
                     b.Property<int>("Id_Partenaire")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("Id_PlageHoraire")
                         .HasColumnType("int");
 
                     b.Property<decimal>("MontantHT")
@@ -139,6 +138,8 @@ namespace example2.Migrations
 
                     b.HasIndex("Id_Partenaire");
 
+                    b.HasIndex("Id_PlageHoraire");
+
                     b.ToTable("Commandes");
                 });
 
@@ -153,9 +154,6 @@ namespace example2.Migrations
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("DureeSecondes")
-                        .HasColumnType("int");
 
                     b.Property<string>("Emission")
                         .HasColumnType("nvarchar(max)");
@@ -254,19 +252,16 @@ namespace example2.Migrations
                     b.Property<string>("AdresseLivraison")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<DateTime?>("DateDebutDiffusion")
-                        .HasColumnType("datetime2");
-
                     b.Property<DateTime>("DateDevis")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("DateFinDiffusion")
                         .HasColumnType("datetime2");
 
                     b.Property<DateTime>("DateValidite")
                         .HasColumnType("datetime2");
 
                     b.Property<int>("Id_Partenaire")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("Id_PlageHoraire")
                         .HasColumnType("int");
 
                     b.Property<int?>("Id_User")
@@ -307,6 +302,8 @@ namespace example2.Migrations
 
                     b.HasIndex("Id_Partenaire");
 
+                    b.HasIndex("Id_PlageHoraire");
+
                     b.HasIndex("Id_User");
 
                     b.ToTable("Devis");
@@ -323,9 +320,6 @@ namespace example2.Migrations
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("DureeSecondes")
-                        .HasColumnType("int");
 
                     b.Property<string>("Emission")
                         .HasColumnType("nvarchar(max)");
@@ -586,11 +580,10 @@ namespace example2.Migrations
                     b.Property<string>("Remarques")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("StatutString")
+                    b.Property<string>("Statut")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)")
-                        .HasColumnName("Statut");
+                        .HasColumnType("nvarchar(50)");
 
                     b.HasKey("Id_PlanificationSpot");
 
@@ -623,9 +616,6 @@ namespace example2.Migrations
                     b.Property<string>("Designation")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("DureeSecondes")
-                        .HasColumnType("int");
 
                     b.Property<int>("Id_Categorie")
                         .HasColumnType("int");
@@ -711,9 +701,16 @@ namespace example2.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("example2.Models.PlageHoraire", "PlageHoraire")
+                        .WithMany()
+                        .HasForeignKey("Id_PlageHoraire")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Devis");
 
                     b.Navigation("Partenaire");
+
+                    b.Navigation("PlageHoraire");
                 });
 
             modelBuilder.Entity("example2.Models.CommandeLigne", b =>
@@ -743,12 +740,19 @@ namespace example2.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("example2.Models.PlageHoraire", "PlageHoraire")
+                        .WithMany()
+                        .HasForeignKey("Id_PlageHoraire")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("example2.Models.User", "User")
                         .WithMany()
                         .HasForeignKey("Id_User")
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Partenaire");
+
+                    b.Navigation("PlageHoraire");
 
                     b.Navigation("User");
                 });

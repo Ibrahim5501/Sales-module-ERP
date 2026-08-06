@@ -50,7 +50,7 @@ async function chargerProduits() {
                 },
                 {
                     dataField: "unite",
-                    caption: "Durée / Unité",
+                    caption: "Unité",
                     width: 140,
                     alignment: "center",
                     cellTemplate: (container, options) => {
@@ -58,8 +58,17 @@ async function chargerProduits() {
                     }
                 },
                 {
+                    dataField: "dureeSecondes",
+                    caption: "Durée Défaut (s)",
+                    alignment: "center",
+                    width: 130,
+                    cellTemplate: (container, options) => {
+                        $('<span class="badge badge-blue">').text(`${options.value || 30} s`).appendTo(container);
+                    }
+                },
+                {
                     dataField: "prixUniversitaire",
-                    caption: "Prix Unit. HT (TND)",
+                    caption: "Prix Unit. HT (TND/s)",
                     alignment: "right",
                     width: 170,
                     calculateCellValue: (row) => formatCurrency(row.prixUniversitaire)
@@ -216,6 +225,7 @@ function initPopupArticle() {
                     Designation: "",
                     id_Categorie: null,
                     prixUniversitaire: 0,
+                    dureeSecondes: 30,
                     Unite: "Secondes",
                     TauxTVA: 19,
                     QuantiteStock: 999999,
@@ -276,22 +286,30 @@ function initPopupArticle() {
                         ]
                     },
                     {
-                        dataField: "Unite",
-                        label: {
-                            text: "Durée (en secondes)"
-                        },
-                        editorType: "dxTextBox"
-                    },
-                    {
-                        dataField: "prixUniversitaire",
-                        label: {
-                            text: "Prix Unitaire HT (TND / seconde)"
-                        },
-                        editorType: "dxNumberBox",
-                        editorOptions: {
-                            min: 0,
-                            format: "#,###0.000 TND"
-                        }
+                        itemType: "group",
+                        colCount: 2,
+                        items: [
+                            {
+                                dataField: "dureeSecondes",
+                                label: { text: "Durée Défaut (sec)" },
+                                editorType: "dxNumberBox",
+                                editorOptions: {
+                                    min: 1,
+                                    value: 30,
+                                    format: "#0 s"
+                                },
+                                validationRules: [{ type: "required", message: "La durée est requise." }]
+                            },
+                            {
+                                dataField: "prixUniversitaire",
+                                label: { text: "Prix HT (TND / sec)" },
+                                editorType: "dxNumberBox",
+                                editorOptions: {
+                                    min: 0,
+                                    format: "#,###0.000 TND"
+                                }
+                            }
+                        ]
                     },
                     {
                         dataField: "TauxTVA",
@@ -370,6 +388,7 @@ function ouvrirPopupArticle(article = null) {
             id_Categorie: article.id_Categorie,
             Unite: article.unite,
             prixUniversitaire: article.prixUniversitaire,
+            dureeSecondes: article.dureeSecondes || 30,
             TauxTVA: article.tauxTVA,
             QuantiteStock: article.quantiteStock,
             Actif: article.actif
@@ -379,6 +398,7 @@ function ouvrirPopupArticle(article = null) {
             Designation: "",
             id_Categorie: null,
             prixUniversitaire: 0,
+            dureeSecondes: 30,
             Unite: "Secondes",
             TauxTVA: 19,
             QuantiteStock: 999999,

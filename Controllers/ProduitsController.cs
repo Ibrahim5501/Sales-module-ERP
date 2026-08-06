@@ -39,6 +39,7 @@ namespace example2.Controllers
                 Unite = p.Unite,
                 PrixUniversitaire = p.PrixUniversitaire,
                 QuantiteStock = p.QuantiteStock,
+                DureeSecondes = p.DureeSecondes > 0 ? p.DureeSecondes : 30,
                 TauxTVA = p.TauxTVA,
                 Actif = p.Actif
             });
@@ -63,6 +64,7 @@ namespace example2.Controllers
                 Unite = prod.Unite,
                 PrixUniversitaire = prod.PrixUniversitaire,
                 QuantiteStock = prod.QuantiteStock,
+                DureeSecondes = prod.DureeSecondes > 0 ? prod.DureeSecondes : 30,
                 TauxTVA = prod.TauxTVA,
                 Actif = prod.Actif
             };
@@ -82,6 +84,7 @@ namespace example2.Controllers
                 Unite = produitDto.Unite,
                 PrixUniversitaire = produitDto.PrixUniversitaire,
                 QuantiteStock = produitDto.QuantiteStock,
+                DureeSecondes = produitDto.DureeSecondes > 0 ? produitDto.DureeSecondes : 30,
                 Actif = true
             };
 
@@ -97,6 +100,7 @@ namespace example2.Controllers
                 Unite = produit.Unite,
                 PrixUniversitaire = produit.PrixUniversitaire,
                 QuantiteStock = produit.QuantiteStock,
+                DureeSecondes = produit.DureeSecondes,
                 Actif = produit.Actif
             };
 
@@ -117,6 +121,7 @@ namespace example2.Controllers
             existing.Unite = produitDto.Unite;
             existing.PrixUniversitaire = produitDto.PrixUniversitaire;
             existing.QuantiteStock = produitDto.QuantiteStock;
+            existing.DureeSecondes = produitDto.DureeSecondes > 0 ? produitDto.DureeSecondes : 30;
             existing.Actif = existing.Actif;
 
             await _context.SaveChangesAsync();
@@ -130,6 +135,7 @@ namespace example2.Controllers
                 Unite = existing.Unite,
                 PrixUniversitaire = existing.PrixUniversitaire,
                 QuantiteStock = existing.QuantiteStock,
+                DureeSecondes = existing.DureeSecondes,
                 Actif = existing.Actif
             };
 

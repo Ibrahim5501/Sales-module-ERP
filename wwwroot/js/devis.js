@@ -312,6 +312,8 @@ async function ouvrirDetailDevis(id) {
             const emissionBadge = l.emission ? `<span class="badge badge-blue" style="margin-left:6px; font-size:11px;">${l.emission}</span>` : "";
             const tvaTaux = l.tauxTVA !== undefined ? l.tauxTVA : (l.TauxTVA !== undefined ? l.TauxTVA : 19);
             const designation = l.designation || l.nomSpot || l.description || "Article";
+            const qte = l.quantite || 1;
+            const duree = l.dureeSecondes || 30;
 
             linesHtml += `
                 <div class="detail-item-row"
@@ -319,7 +321,7 @@ async function ouvrirDetailDevis(id) {
                     <div style="display:flex; flex-direction:column;">
                         <div><strong>${designation}</strong>${emissionBadge}</div>
                         <span style="font-size:11px;color:var(--text-muted);">
-                            ${l.quantite || 1} sec × ${formatCurrency(l.prixUniversitaire || 0)} ${remiseStr} &mdash; TVA ${tvaTaux}%
+                            ${qte} spot(s) × ${duree}s @ ${formatCurrency(l.prixUniversitaire || 0)}/s ${remiseStr} &mdash; TVA ${tvaTaux}%
                         </span>
                     </div>
                     <strong style="align-self:center;">
@@ -338,7 +340,8 @@ async function ouvrirDetailDevis(id) {
                     <div><span style="color:var(--text-muted);">Date :</span> <strong>${dateDevis}</strong></div>
                     <div><span style="color:var(--text-muted);">Validité :</span> <strong>${dateValidite}</strong></div>
                     <div><span style="color:var(--text-muted);">Créé par :</span> <strong>${d.createdByUsername || 'N/A'}</strong></div>
-                    <div><span style="color:var(--text-muted);">Paiement :</span> <strong>${d.modePaiement || 'Virement Bancaire'}</strong></div>
+                    <div><span style="color:var(--text-muted);">Mode Paiement :</span> <strong>${d.modePaiement || 'Virement Bancaire'}</strong></div>
+                    <div><span style="color:var(--text-muted);">Période Campagne :</span> <strong>${(d.dateDebutDiffusion || d.dateFinDiffusion) ? `Du ${d.dateDebutDiffusion ? new Date(d.dateDebutDiffusion).toLocaleDateString('fr-FR') : '...'} au ${d.dateFinDiffusion ? new Date(d.dateFinDiffusion).toLocaleDateString('fr-FR') : '...'}` : 'Non restreinte'}</strong></div>
                     <div><span style="color:var(--text-muted);">Remise Globale :</span> <strong>${(d.remiseGlobale || 0) > 0 ? (d.typeRemiseGlobale === 'MontantFixe' ? Number(d.remiseGlobale).toFixed(3) + ' DT' : d.remiseGlobale + '%') : 'Aucune'}</strong></div>
                     <div><span style="color:var(--text-muted);">Total HT :</span> <strong>${formatCurrency(d.montantHT || 0)}</strong></div>
                     <div><span style="color:var(--text-muted);">Total TTC :</span> <strong class="text-primary">${formatCurrency(d.montantTTC || 0)}</strong></div>
@@ -463,6 +466,8 @@ function initPopupDevis() {
                     modePaiement: "Virement Bancaire",
                     remiseGlobale: 0,
                     typeRemiseGlobale: "Pourcentage",
+                    dateDebutDiffusion: null,
+                    dateFinDiffusion: null,
                     dateValidite: new Date(new Date().setDate(new Date().getDate() + 30))
                 },
                 colCount: 2,
@@ -574,6 +579,30 @@ function initPopupDevis() {
                         }
                     },
                     {
+                        dataField: "dateDebutDiffusion",
+                        colSpan: 1,
+                        label: { text: "Date Début Diffusion (Campagne)" },
+                        editorType: "dxDateBox",
+                        editorOptions: {
+                            type: "date",
+                            displayFormat: "dd/MM/yyyy",
+                            showClearButton: true,
+                            placeholder: "-- Début de campagne --"
+                        }
+                    },
+                    {
+                        dataField: "dateFinDiffusion",
+                        colSpan: 1,
+                        label: { text: "Date Fin Diffusion (Campagne)" },
+                        editorType: "dxDateBox",
+                        editorOptions: {
+                            type: "date",
+                            displayFormat: "dd/MM/yyyy",
+                            showClearButton: true,
+                            placeholder: "-- Fin de campagne --"
+                        }
+                    },
+                    {
                         dataField: "adresseFacturation",
                         colSpan: 2,
                         label: { text: "Adresse de facturation" },
@@ -634,8 +663,8 @@ function initPopupDevis() {
                 columns: [
                     {
                         dataField: "nomVariante",
-                        caption: "Variante / Spot Publicitaire",
-                        width: 220,
+                        caption: "Spot Publicitaire",
+                        width: 200,
                         allowEditing: false,
                         cellTemplate: (container, options) => {
                             const row = options.data;
@@ -648,20 +677,34 @@ function initPopupDevis() {
                     },
                     {
                         dataField: "prixUniversitaire",
-                        caption: "Prix Unit. HT",
+                        caption: "Prix HT/sec",
                         dataType: "number",
                         allowEditing: false,
-                        width: 120,
+                        width: 100,
                         alignment: "right",
                         format: "#,##0.000"
                     },
                     {
-                        dataField: "quantite",
-                        caption: "Durée (sec)",
+                        dataField: "dureeSecondes",
+                        caption: "Durée",
                         dataType: "number",
                         allowEditing: false,
-                        width: 100,
-                        alignment: "center"
+                        width: 80,
+                        alignment: "center",
+                        cellTemplate: (container, options) => {
+                            $('<span>').text(`${options.value || 30} s`).appendTo(container);
+                        }
+                    },
+                    {
+                        dataField: "quantite",
+                        caption: "Quantité",
+                        dataType: "number",
+                        allowEditing: false,
+                        width: 80,
+                        alignment: "center",
+                        cellTemplate: (container, options) => {
+                            $('<span>').text(`${options.value || 1}`).appendTo(container);
+                        }
                     },
                     {
                         dataField: "remise",
@@ -679,7 +722,7 @@ function initPopupDevis() {
                     {
                         dataField: "TauxTVA",
                         caption: "TVA",
-                        width: 70,
+                        width: 60,
                         allowEditing: false,
                         alignment: "center",
                         cellTemplate: (container, options) => {
@@ -696,13 +739,15 @@ function initPopupDevis() {
                         calculateCellValue: (row) => {
                             if (!row || !row.prixUniversitaire) return 0;
                             const qte = row.quantite || 1;
+                            const duree = row.dureeSecondes || 30;
+                            let montantBrut = row.prixUniversitaire * duree * qte;
                             let remVal = 0;
                             if (row.typeRemise === "MontantFixe") {
                                 remVal = row.remise || 0;
                             } else {
-                                remVal = (row.prixUniversitaire * qte) * ((row.remise || 0) / 100);
+                                remVal = montantBrut * ((row.remise || 0) / 100);
                             }
-                            let res = (row.prixUniversitaire * qte) - remVal;
+                            let res = montantBrut - remVal;
                             return res < 0 ? 0 : res;
                         },
                         cellTemplate: (container, options) => {
@@ -792,6 +837,8 @@ function ouvrirNouveauDevisPopup() {
             modePaiement: "Virement Bancaire",
             remiseGlobale: 0,
             typeRemiseGlobale: "Pourcentage",
+            dateDebutDiffusion: null,
+            dateFinDiffusion: null,
             dateValidite: new Date(new Date().setDate(new Date().getDate() + 30))
         };
 
@@ -818,13 +865,15 @@ function recalculerTotauxDevisPopup() {
     items.forEach(l => {
         if (l.prixUniversitaire) {
             const qte = l.quantite || 1;
+            const duree = l.dureeSecondes || 30;
+            let montantBrut = l.prixUniversitaire * duree * qte;
             let remVal = 0;
             if (l.typeRemise === "MontantFixe") {
                 remVal = l.remise || 0;
             } else {
-                remVal = (l.prixUniversitaire * qte) * ((l.remise || 0) / 100);
+                remVal = montantBrut * ((l.remise || 0) / 100);
             }
-            let lineHT = (l.prixUniversitaire * qte) - remVal;
+            let lineHT = montantBrut - remVal;
             if (lineHT < 0) lineHT = 0;
 
             const tvaTaux = l.TauxTVA !== undefined ? l.TauxTVA : (l.tauxTVA !== undefined ? l.tauxTVA : 19);
@@ -917,11 +966,14 @@ async function soumettreDevis() {
         modePaiement: headerData.modePaiement || "Virement Bancaire",
         remiseGlobale: headerData.remiseGlobale || 0,
         typeRemiseGlobale: headerData.typeRemiseGlobale || "Pourcentage",
+        dateDebutDiffusion: headerData.dateDebutDiffusion ? new Date(headerData.dateDebutDiffusion).toISOString() : null,
+        dateFinDiffusion: headerData.dateFinDiffusion ? new Date(headerData.dateFinDiffusion).toISOString() : null,
         dateValidite: headerData.dateValidite,
         lignes: lines.map(l => ({
             id_Produit: l.produitId,
             description: l.nomVariante || l.nomSpot || "",
             quantite: l.quantite || 1,
+            dureeSecondes: l.dureeSecondes || 30,
             prixUniversitaire: l.prixUniversitaire || 0,
             TauxTVA: l.TauxTVA !== undefined ? l.TauxTVA : (l.tauxTVA !== undefined ? l.tauxTVA : 19),
             remise: l.remise || 0,
@@ -949,310 +1001,4 @@ async function soumettreDevis() {
     } catch (err) {
         showToast(err.message, true);
     }
-}
-
-// --- POPUP CONFIGURATION LIGNE DE DEVIS ---
-
-function initPopupConfigDevisLigne() {
-    $("#popup-config-devis-ligne").dxPopup({
-        title: "Configurer la ligne de devis",
-        width: 550,
-        height: "auto",
-        visible: false,
-        deferRendering: false,
-        dragEnabled: true,
-        showCloseButton: true,
-
-        contentTemplate: (container) => {
-            const formEl = $("<div id='dx-form-config-devis-ligne'>").appendTo(container);
-
-            configLigneFormInstance = formEl.dxForm({
-                labelLocation: "top",
-                colCount: 2,
-                formData: {
-                    produitId: null,
-                    varianteId: null,
-                    nomSpot: "",
-                    nomVariante: "",
-                    nomPlage: "",
-                    prixUniversitaire: 0,
-                    quantite: 10,
-                    remise: 0,
-                    typeRemise: "Pourcentage",
-                    TauxTVA: 19,
-                    emission: ""
-                },
-                items: [
-                    {
-                        dataField: "produitId",
-                        colSpan: 2,
-                        label: { text: "1. Sélectionner un Spot Publicitaire" },
-                        editorType: "dxSelectBox",
-                        editorOptions: {
-                            dataSource: (produitsData || []).filter(p => p.actif !== false),
-                            valueExpr: "id_Produit",
-                            displayExpr: item => item ? `${item.designation} (${item.code})` : "",
-                            searchEnabled: true,
-                            placeholder: "-- Sélectionner le spot --",
-                            onValueChanged(e) {
-                                const prod = (produitsData || []).find(p => p.id_Produit === e.value);
-                                if (!prod) return;
-
-                                // Filter variants for this spot
-                                const variantesDuSpot = (window.articlesVariantesData || []).filter(v => v.id_Produit === e.value && v.actif !== false);
-                                const varEditor = configLigneFormInstance.getEditor("varianteId");
-                                if (varEditor) {
-                                    varEditor.option("dataSource", variantesDuSpot);
-                                    varEditor.option("value", null);
-                                }
-
-                                // Default values from spot if no variant selected yet
-                                configLigneFormInstance.updateData("nomSpot", prod.designation);
-                                configLigneFormInstance.updateData("nomVariante", prod.designation);
-                                configLigneFormInstance.updateData("prixUniversitaire", prod.prixUniversitaire || 0);
-                                configLigneFormInstance.updateData("TauxTVA", prod.tauxTVA || 19);
-                                configLigneFormInstance.updateData("quantite", 10);
-                            }
-                        },
-                        validationRules: [{ type: "required", message: "Veuillez choisir un spot." }]
-                    },
-                    {
-                        dataField: "varianteId",
-                        colSpan: 2,
-                        label: { text: "2. Choisir une Variante (Spot + Plage Horaire prédéfinie)" },
-                        editorType: "dxSelectBox",
-                        editorOptions: {
-                            dataSource: [],
-                            valueExpr: "id_ArticleVariante",
-                            displayExpr: item => item ? `${item.designation} — ${item.nomPlageHoraire} (${item.heureDebut}-${item.heureFin}) - ${formatCurrency(item.prixVariante)}` : "",
-                            searchEnabled: true,
-                            placeholder: "-- Sélectionner une variante (optionnel) --",
-                            showClearButton: true,
-                            onValueChanged(e) {
-                                if (!e.value) return;
-                                const variante = (window.articlesVariantesData || []).find(v => v.id_ArticleVariante === e.value);
-                                if (!variante) return;
-
-                                configLigneFormInstance.updateData("nomVariante", variante.designation);
-                                configLigneFormInstance.updateData("prixUniversitaire", variante.prixVariante);
-                                configLigneFormInstance.updateData("TauxTVA", variante.tauxTVA);
-                                configLigneFormInstance.updateData("quantite", variante.dureeDefaut || 10);
-                                const plageTxt = `${variante.nomPlageHoraire} (${variante.heureDebut}-${variante.heureFin})`;
-                                configLigneFormInstance.updateData("nomPlage", variante.nomPlageHoraire);
-                                configLigneFormInstance.updateData("emission", plageTxt);
-                            }
-                        }
-                    },
-                    {
-                        dataField: "prixUniversitaire",
-                        colSpan: 1,
-                        label: { text: "Prix Unitaire HT (TND / sec)" },
-                        editorType: "dxNumberBox",
-                        editorOptions: {
-                            min: 0,
-                            format: "#,###0.000 TND"
-                        },
-                        validationRules: [{ type: "required" }]
-                    },
-                    {
-                        dataField: "quantite",
-                        colSpan: 1,
-                        label: { text: "Durée (secondes)" },
-                        editorType: "dxNumberBox",
-                        editorOptions: {
-                            min: 1,
-                            format: "#0 s"
-                        },
-                        validationRules: [{ type: "required", message: "La durée est requise." }]
-                    },
-                    {
-                        dataField: "remise",
-                        colSpan: 1,
-                        label: { text: "Remise" },
-                        editorType: "dxNumberBox",
-                        editorOptions: { min: 0, value: 0 }
-                    },
-                    {
-                        dataField: "typeRemise",
-                        colSpan: 1,
-                        label: { text: "Type Remise" },
-                        editorType: "dxSelectBox",
-                        editorOptions: {
-                            dataSource: [
-                                { value: "Pourcentage", text: "Pourcentage (%)" },
-                                { value: "MontantFixe", text: "Montant Fixe (TND)" }
-                            ],
-                            valueExpr: "value",
-                            displayExpr: "text",
-                            value: "Pourcentage"
-                        }
-                    },
-                    {
-                        dataField: "TauxTVA",
-                        colSpan: 1,
-                        label: { text: "Taux TVA (%)" },
-                        editorType: "dxSelectBox",
-                        editorOptions: {
-                            dataSource: [
-                                { value: 0, text: "0 %" },
-                                { value: 7, text: "7 %" },
-                                { value: 13, text: "13 %" },
-                                { value: 19, text: "19 %" }
-                            ],
-                            valueExpr: "value",
-                            displayExpr: "text"
-                        }
-                    },
-                    {
-                        dataField: "emission",
-                        colSpan: 1,
-                        label: { text: "Plage horaire / Émission" },
-                        editorType: "dxSelectBox",
-                        editorOptions: {
-                            dataSource: (plagesHorairesData || []).filter(p => p.actif != false),
-                            valueExpr: "id_PlageHoraire",
-                            displayExpr: item => item ? `${item.nom} (${item.heureDebut}-${item.heureFin})` : "",
-                            searchEnabled: true,
-                            placeholder: "-- Sélectionner une plage horaire --",
-                            onValueChanged(e) {
-                                const plage = (plagesHorairesData || []).find(p => p.id_PlageHoraire === e.value);
-                                if (!plage) return;
-                                const plageTxt = `${plage.nom} (${plage.heureDebut}-${plage.heureFin})`;
-                                configLigneFormInstance.updateData("nomPlage", plage.nom);
-                                configLigneFormInstance.updateData("emission", plageTxt);
-                            }
-                        }
-                    }
-                ]
-            }).dxForm("instance");
-        },
-
-        toolbarItems: [
-            {
-                location: "after",
-                toolbar: "bottom",
-                widget: "dxButton",
-                options: {
-                    text: "Valider la ligne",
-                    type: "default",
-                    icon: "check",
-                    onClick: () => validerLigneDevisDepuisPopup()
-                }
-            },
-            {
-                location: "after",
-                toolbar: "bottom",
-                widget: "dxButton",
-                options: {
-                    text: "Annuler",
-                    onClick: () => {
-                        const popup = $("#popup-config-devis-ligne").dxPopup("instance");
-                        if (popup) popup.hide();
-                    }
-                }
-            }
-        ]
-    });
-}
-
-function ouvrirPopupConfigDevisLigne(rowIndex = null) {
-    currentEditingLineIndex = rowIndex;
-    const popup = $("#popup-config-devis-ligne").dxPopup("instance");
-    if (!popup) return;
-
-    popup.option("title", rowIndex !== null ? "Modifier la ligne de devis" : "Ajouter une ligne au devis");
-    popup.show();
-
-    if (configLigneFormInstance) {
-        const prodEditor = configLigneFormInstance.getEditor("produitId");
-        if (prodEditor) {
-            prodEditor.option("dataSource", (produitsData || []).filter(p => p.actif !== false));
-        }
-
-        const plageEditor = configLigneFormInstance.getEditor("emission");
-        if (plageEditor && plageEditor.option("dataSource")) {
-            plageEditor.option("dataSource", (plagesHorairesData || []).filter(p => p.actif !== false));
-        }
-
-        if (rowIndex !== null && internalDevisLines[rowIndex]) {
-            const line = internalDevisLines[rowIndex];
-            const spotId = line.produitId;
-
-            // Load variants of this spot
-            const variantesDuSpot = (window.articlesVariantesData || []).filter(v => v.id_Produit === spotId && v.actif !== false);
-            const varEditor = configLigneFormInstance.getEditor("varianteId");
-            if (varEditor) varEditor.option("dataSource", variantesDuSpot);
-
-            configLigneFormInstance.option("formData", {
-                produitId: line.produitId,
-                varianteId: line.varianteId || null,
-                nomSpot: line.nomSpot || "",
-                nomVariante: line.nomVariante || "",
-                nomPlage: line.nomPlage || "",
-                prixUniversitaire: line.prixUniversitaire,
-                quantite: line.quantite,
-                remise: line.remise || 0,
-                typeRemise: line.typeRemise || "Pourcentage",
-                TauxTVA: line.TauxTVA !== undefined ? line.TauxTVA : (line.tauxTVA !== undefined ? line.tauxTVA : 19),
-                emission: line.emission || ""
-            });
-        } else {
-            const varEditor = configLigneFormInstance.getEditor("varianteId");
-            if (varEditor) varEditor.option("dataSource", []);
-
-            configLigneFormInstance.option("formData", {
-                produitId: null,
-                varianteId: null,
-                nomSpot: "",
-                nomVariante: "",
-                nomPlage: "",
-                prixUniversitaire: 0,
-                quantite: 10,
-                remise: 0,
-                typeRemise: "Pourcentage",
-                TauxTVA: 19,
-                emission: ""
-            });
-        }
-        if (typeof configLigneFormInstance.resetValidation === "function") {
-            configLigneFormInstance.resetValidation();
-        }
-    }
-}
-
-function validerLigneDevisDepuisPopup() {
-    if (!configLigneFormInstance) return;
-    const res = configLigneFormInstance.validate();
-    if (!res.isValid) return;
-
-    const data = configLigneFormInstance.option("formData");
-    const spot = (produitsData || []).find(p => p.id_Produit === data.produitId);
-    const lineItem = {
-        produitId: data.produitId,
-        varianteId: data.varianteId || null,
-        nomSpot: spot ? spot.designation : (data.nomSpot || ""),
-        nomVariante: data.nomVariante || (spot ? spot.designation : ""),
-        nomPlage: data.nomPlage || "",
-        prixUniversitaire: data.prixUniversitaire || 0,
-        quantite: data.quantite || 10,
-        remise: data.remise || 0,
-        typeRemise: data.typeRemise || "Pourcentage",
-        TauxTVA: data.TauxTVA !== undefined ? data.TauxTVA : 19,
-        emission: data.emission || ""
-    };
-
-    if (currentEditingLineIndex !== null && currentEditingLineIndex >= 0) {
-        internalDevisLines[currentEditingLineIndex] = lineItem;
-    } else {
-        internalDevisLines.push(lineItem);
-    }
-
-    const grid = $("#dx-grid-devis-lines").dxDataGrid("instance");
-    if (grid) {
-        grid.option("dataSource", internalDevisLines);
-        grid.refresh();
-    }
-    recalculerTotauxDevisPopup();
-    const popup = $("#popup-config-devis-ligne").dxPopup("instance");
-    if (popup) popup.hide();
 }

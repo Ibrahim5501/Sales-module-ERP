@@ -39,6 +39,10 @@ namespace example2.Models
 
         public Partenaire? Partenaire { get; set; }
 
+        public DateTime? DateDebutDiffusion { get; set; }
+
+        public DateTime? DateFinDiffusion { get; set; }
+
         public ICollection<DevisLigne> Lignes { get; set; } = new List<DevisLigne>();
 
         public Commande? Commande { get; set; }

@@ -71,7 +71,8 @@ namespace example2.Controllers
                 Lignes = commandeDto.Lignes.Select(l => new CommandeLigne
                 {
                     Description = l.Description,
-                    Quantite = l.Quantite,
+                    Quantite = l.Quantite > 0 ? l.Quantite : 1,
+                    DureeSecondes = l.DureeSecondes > 0 ? l.DureeSecondes : 30,
                     PrixUniversitaire = l.PrixUniversitaire,
                     TauxTVA = l.TauxTVA,
                     Remise = l.Remise,
@@ -84,8 +85,11 @@ namespace example2.Controllers
 
             foreach (var ligne in commande.Lignes)
             {
-                decimal remiseMontant = ligne.PrixUniversitaire * (ligne.Remise / 100m);
-                ligne.MontantHT = (ligne.PrixUniversitaire - remiseMontant) * ligne.Quantite;
+                int duree = ligne.DureeSecondes > 0 ? ligne.DureeSecondes : 30;
+                decimal qte = ligne.Quantite > 0 ? ligne.Quantite : 1m;
+                decimal montantBrut = ligne.PrixUniversitaire * duree * qte;
+                decimal remiseMontant = montantBrut * (ligne.Remise / 100m);
+                ligne.MontantHT = montantBrut - remiseMontant;
                 ligne.MontantTTC = ligne.MontantHT * (1 + (ligne.TauxTVA / 100m));
 
                 totalHT += ligne.MontantHT;
@@ -258,11 +262,14 @@ namespace example2.Controllers
                 MontantTVA = c.MontantTVA,
                 MontantTTC = c.MontantTTC,
                 Statut = c.Statut,
+                DateDebutDiffusion = c.DateDebutDiffusion,
+                DateFinDiffusion = c.DateFinDiffusion,
                 Lignes = c.Lignes.Select(l => new CommandeLigneDto
                 {
                     Id_CommandeLigne = l.Id_CommandeLigne,
                     Description = l.Description,
                     Quantite = l.Quantite,
+                    DureeSecondes = l.DureeSecondes,
                     PrixUniversitaire = l.PrixUniversitaire,
                     TauxTVA = l.TauxTVA,
                     Remise = l.Remise,

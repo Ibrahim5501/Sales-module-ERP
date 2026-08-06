@@ -33,11 +33,18 @@ namespace example2.Models
 
         public ICollection<CommandeLigne> Lignes { get; set; } = new List<CommandeLigne>();
 
+        public DateTime? DateDebutDiffusion { get; set; }
+
+        public DateTime? DateFinDiffusion { get; set; }
+
         [JsonIgnore]
         public Facture? Facture { get; set; }
 
         [JsonIgnore]
         public ICollection<Livraison> Livraisons { get; set; } = new List<Livraison>();
+
+        [JsonIgnore]
+        public ICollection<PlanificationSpot> Planifications { get; set; } = new List<PlanificationSpot>();
     }
 
     public enum CommandeStatut

@@ -146,16 +146,18 @@ namespace example2.Services
             // --- TABLE HEADERS ---
             gfx.DrawRectangle(new XSolidBrush(primaryColor), margin, yPos, pageWidth, 22);
             
-            double xDesc = margin + 10;
-            double xQte = margin + 200;
-            double xPrix = margin + 250;
-            double xRem = margin + 340;
-            double xTva = margin + 400;
-            double xTotal = margin + 450;
+            double xDesc = margin + 5;
+            double xDur  = margin + 175;
+            double xQte  = margin + 220;
+            double xPrix = margin + 260;
+            double xRem  = margin + 325;
+            double xTva  = margin + 380;
+            double xTotal= margin + 420;
 
             gfx.DrawString("Désignation / Description", fontHeader, XBrushes.White, xDesc, yPos + 15);
+            gfx.DrawString("Durée", fontHeader, XBrushes.White, xDur, yPos + 15);
             gfx.DrawString("Qté", fontHeader, XBrushes.White, xQte, yPos + 15);
-            gfx.DrawString("P.U (TND)", fontHeader, XBrushes.White, xPrix, yPos + 15);
+            gfx.DrawString("P.U/s (TND)", fontHeader, XBrushes.White, xPrix, yPos + 15);
             gfx.DrawString("Rem.", fontHeader, XBrushes.White, xRem, yPos + 15);
             gfx.DrawString("TVA", fontHeader, XBrushes.White, xTva, yPos + 15);
             gfx.DrawString("Total HT", fontHeader, XBrushes.White, xTotal, yPos + 15);
@@ -186,8 +188,12 @@ namespace example2.Services
                     ? $"{ligne.Remise:N3} DT" 
                     : $"{ligne.Remise:0.##}%";
 
-                gfx.DrawString(Truncate(desc, 34), fontBody, new XSolidBrush(textColor), xDesc, yPos + 14);
-                gfx.DrawString(ligne.Quantite.ToString("0.##") + " sec", fontBody, new XSolidBrush(textColor), xQte, yPos + 14);
+                int duree = ligne.DureeSecondes > 0 ? ligne.DureeSecondes : 30;
+                decimal qte = ligne.Quantite > 0 ? ligne.Quantite : 1;
+
+                gfx.DrawString(Truncate(desc, 28), fontBody, new XSolidBrush(textColor), xDesc, yPos + 14);
+                gfx.DrawString($"{duree} s", fontBody, new XSolidBrush(textColor), xDur, yPos + 14);
+                gfx.DrawString(qte.ToString("0.##"), fontBody, new XSolidBrush(textColor), xQte, yPos + 14);
                 gfx.DrawString(ligne.PrixUniversitaire.ToString("N3"), fontBody, new XSolidBrush(textColor), xPrix, yPos + 14);
                 gfx.DrawString(remStr, fontBody, new XSolidBrush(textColor), xRem, yPos + 14);
                 gfx.DrawString($"{ligne.TauxTVA:0}%", fontBody, new XSolidBrush(textColor), xTva, yPos + 14);
@@ -391,17 +397,19 @@ namespace example2.Services
             // --- TABLE HEADERS ---
             gfx.DrawRectangle(new XSolidBrush(primaryColor), margin, yPos, pageWidth, 22);
             
-            double xDesc = margin + 10;
-            double xQte = margin + 200;
-            double xPrix = margin + 250;
-            double xRem = margin + 340;
-            double xTva = margin + 400;
-            double xTotal = margin + 450;
+            double xDesc = margin + 5;
+            double xDur  = margin + 175;
+            double xQte  = margin + 220;
+            double xPrix = margin + 260;
+            double xRem  = margin + 325;
+            double xTva  = margin + 380;
+            double xTotal= margin + 420;
 
             gfx.DrawString("Désignation / Spot Publicitaire", fontHeader, XBrushes.White, xDesc, yPos + 15);
-            gfx.DrawString("Sec.", fontHeader, XBrushes.White, xQte, yPos + 15);
-            gfx.DrawString("P.U (TND)", fontHeader, XBrushes.White, xPrix, yPos + 15);
-            //gfx.DrawString("Rem.", fontHeader, XBrushes.White, xRem, yPos + 15);
+            gfx.DrawString("Durée", fontHeader, XBrushes.White, xDur, yPos + 15);
+            gfx.DrawString("Qté", fontHeader, XBrushes.White, xQte, yPos + 15);
+            gfx.DrawString("P.U/s (TND)", fontHeader, XBrushes.White, xPrix, yPos + 15);
+            gfx.DrawString("Rem.", fontHeader, XBrushes.White, xRem, yPos + 15);
             gfx.DrawString("TVA", fontHeader, XBrushes.White, xTva, yPos + 15);
             gfx.DrawString("Total HT", fontHeader, XBrushes.White, xTotal, yPos + 15);
 
@@ -424,11 +432,14 @@ namespace example2.Services
                     desc += $" [{ligne.Emission}]";
 
                 string remStr = ligne.Remise > 0 ? $"{ligne.Remise:0.##}%" : "-";
+                int duree = ligne.DureeSecondes > 0 ? ligne.DureeSecondes : 30;
+                decimal qte = ligne.Quantite > 0 ? ligne.Quantite : 1;
 
-                gfx.DrawString(Truncate(desc, 34), fontBody, new XSolidBrush(textColor), xDesc, yPos + 14);
-                gfx.DrawString(ligne.Quantite.ToString("0.##") + " sec", fontBody, new XSolidBrush(textColor), xQte, yPos + 14);
+                gfx.DrawString(Truncate(desc, 28), fontBody, new XSolidBrush(textColor), xDesc, yPos + 14);
+                gfx.DrawString($"{duree} s", fontBody, new XSolidBrush(textColor), xDur, yPos + 14);
+                gfx.DrawString(qte.ToString("0.##"), fontBody, new XSolidBrush(textColor), xQte, yPos + 14);
                 gfx.DrawString(ligne.PrixUniversitaire.ToString("N3"), fontBody, new XSolidBrush(textColor), xPrix, yPos + 14);
-                //gfx.DrawString(remStr, fontBody, new XSolidBrush(textColor), xRem, yPos + 14);
+                gfx.DrawString(remStr, fontBody, new XSolidBrush(textColor), xRem, yPos + 14);
                 gfx.DrawString($"{ligne.TauxTVA:0}%", fontBody, new XSolidBrush(textColor), xTva, yPos + 14);
                 gfx.DrawString($"{ligne.MontantHT:N3} TND", fontBold, new XSolidBrush(textColor), xTotal, yPos + 14);
 

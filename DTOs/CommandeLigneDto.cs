@@ -10,7 +10,9 @@ namespace example2.DTOs
 
         public string Description { get; set; } = string.Empty;
 
-        public decimal Quantite { get; set; }
+        public decimal Quantite { get; set; } = 1;
+
+        public int DureeSecondes { get; set; } = 30;
 
         public decimal PrixUniversitaire { get; set; }
 

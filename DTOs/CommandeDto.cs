@@ -43,6 +43,10 @@ namespace example2.DTOs
         
         public string? NomPartenaire { get; set; }
 
+        public DateTime? DateDebutDiffusion { get; set; }
+
+        public DateTime? DateFinDiffusion { get; set; }
+
         public List<CommandeLigneDto> Lignes { get; set; } = new();
     }
 }

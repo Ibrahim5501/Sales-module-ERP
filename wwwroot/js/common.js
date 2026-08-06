@@ -56,6 +56,7 @@ var plagesHorairesData = [];
 window.plagesHorairesData = window.plagesHorairesData || [];
 var articlesVariantesData = [];
 window.articlesVariantesData = window.articlesVariantesData || [];
+let planificationSpotsData = [];
 let internalDevisLines = [];
 let activeTab = 'tableau-bord';
 let toastInstance = null;
@@ -166,6 +167,8 @@ function switchTab(tabId) {
         if (typeof chargerPlagesHoraires === 'function') chargerPlagesHoraires();
     } else if (tabId === 'articles-variantes') {
         if (typeof chargerArticlesVariantes === 'function') chargerArticlesVariantes();
+    } else if (tabId === 'planification-spots') {
+        if (typeof chargerPlanificationSpots === 'function') chargerPlanificationSpots();
     } else if (tabId === 'settings') {
         if (typeof chargerCompanySettings === 'function') chargerCompanySettings();
     }
@@ -203,4 +206,31 @@ async function chargerToutesLesDonnees() {
 function formatCurrency(val) {
     if (val === undefined || val === null || isNaN(val)) return "0,000 TND";
     return new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 3, maximumFractionDigits: 3 }).format(val) + " TND";
+}
+
+async function makeRequest(url, method = "GET", data = null) {
+    const options = {
+        method,
+        headers: {
+            "Content-Type": "application/json"
+        }
+    };
+
+    if (data !== null) {
+        options.body = JSON.stringify(data);
+    }
+
+    const response = await fetch(url, options);
+
+    if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`${response.status}: ${text}`);
+    }
+
+    const contentType = response.headers.get("content-type");
+    if (contentType && contentType.includes("application/json")) {
+        return await response.json();
+    }
+
+    return null;
 }

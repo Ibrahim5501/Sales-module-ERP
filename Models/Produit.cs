@@ -19,6 +19,8 @@ namespace example2.Models
 
         public decimal QuantiteStock { get; set; }
 
+        public int DureeSecondes { get; set; } = 30;
+
         public decimal TauxTVA { get; set; }
 
         public bool Actif { get; set; }

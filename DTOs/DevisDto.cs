@@ -21,6 +21,10 @@ namespace example2.DTOs
 
         public string TypeRemiseGlobale { get; set; } = "Pourcentage";
 
+        public DateTime? DateDebutDiffusion { get; set; }
+
+        public DateTime? DateFinDiffusion { get; set; }
+
         public List<DevisLigneCreateDto> Lignes { get; set; } = new();
     }
 
