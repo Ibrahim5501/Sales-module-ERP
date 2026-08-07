@@ -138,5 +138,92 @@ namespace example2.Controllers
 
             return Ok(data);
         }
+
+        // -----------------------------------------------------------------------
+        // ANALYTICS DASHBOARD - Données pour les graphiques analytiques
+        // -----------------------------------------------------------------------
+        [HttpGet("analytics")]
+        public async Task<ActionResult> GetAnalytics()
+        {
+            // --- Devis ---
+            var allDevis = await _context.Devis.ToListAsync();
+            var devisParStatut = allDevis
+                .GroupBy(d => d.Statut.ToString())
+                .Select(g => new { statut = g.Key, count = g.Count() })
+                .ToList();
+
+            // --- Commandes ---
+            var allCommandes = await _context.Commandes.ToListAsync();
+            var commandesParStatut = allCommandes
+                .GroupBy(c => c.Statut.ToString())
+                .Select(g => new { statut = g.Key, count = g.Count() })
+                .ToList();
+
+            // --- Taux de conversion devis -> commande ---
+            int totalDevis = allDevis.Count;
+            int devisConverties = allDevis.Count(d => d.Statut == DevisStatut.Accepte);
+            double tauxConversion = totalDevis > 0 ? Math.Round((double)devisConverties / totalDevis * 100, 1) : 0;
+            int devisNonConverties = totalDevis - devisConverties;
+
+            // --- Planification spots ---
+            var allSpots = await _context.PlanificationSpots
+                .Include(s => s.CommandeLigne)
+                .Include(s => s.PlageHoraire)
+                .ToListAsync();
+
+            var spotsParStatut = allSpots
+                .GroupBy(s => s.Statut.ToString())
+                .Select(g => new { statut = g.Key, count = g.Count() })
+                .ToList();
+
+            // --- Revenus par plage horaire (stacked par statut) ---
+            var revenuParPlage = allSpots
+                .GroupBy(s => s.PlageHoraire != null ? s.PlageHoraire.Nom : "Sans restriction")
+                .Select(g => new
+                {
+                    plage    = g.Key,
+                    planifie = g.Where(s => s.Statut == StatutPlanificationSpot.Planifie)
+                                .Sum(s => s.CommandeLigne != null ? s.CommandeLigne.MontantTTC : 0),
+                    diffuse  = g.Where(s => s.Statut == StatutPlanificationSpot.Diffuse)
+                                .Sum(s => s.CommandeLigne != null ? s.CommandeLigne.MontantTTC : 0),
+                    annule   = g.Where(s => s.Statut == StatutPlanificationSpot.Annule)
+                                .Sum(s => s.CommandeLigne != null ? s.CommandeLigne.MontantTTC : 0)
+                })
+                .OrderByDescending(x => x.planifie + x.diffuse)
+                .ToList();
+
+            // --- Revenus par variante/spot produit ---
+            var allCommandeLignes = await _context.CommandeLignes
+                .Include(l => l.Produit)
+                .ToListAsync();
+
+            var revenuParVariante = allCommandeLignes
+                .Where(l => l.Produit != null)
+                .GroupBy(l => l.Produit!.Designation)
+                .Select(g => new
+                {
+                    variante = g.Key,
+                    revenu   = g.Sum(l => l.MontantTTC),
+                    count    = g.Sum(l => (int)l.Quantite)
+                })
+                .OrderByDescending(x => x.revenu)
+                .Take(10)
+                .ToList();
+
+            return Ok(new
+            {
+                devisParStatut,
+                commandesParStatut,
+                tauxConversion = new[]
+                {
+                    new { label = "Convertis en commande", valeur = devisConverties },
+                    new { label = "Non convertis", valeur = devisNonConverties }
+                },
+                tauxConversionPct = tauxConversion,
+                spotsParStatut,
+                revenuParPlage,
+                revenuParVariante
+            });
+        }
     }
 }

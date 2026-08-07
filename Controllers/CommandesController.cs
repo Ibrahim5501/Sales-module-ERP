@@ -247,6 +247,26 @@ namespace example2.Controllers
             return Ok(factDto);
         }
 
+        [HttpDelete("{id}")]
+        public async Task<ActionResult> Delete(long id)
+        {
+            var cmd = await _context.Commandes
+                .Include(c => c.Lignes)
+                .FirstOrDefaultAsync(c => c.Id_Commande == id);
+
+            if (cmd == null)
+                return NotFound(new { message = "Commande non trouvée." });
+
+            if (cmd.Statut != CommandeStatut.EnAttente)
+                return BadRequest(new { message = "Seules les commandes en attente peuvent être supprimées." });
+
+            _context.CommandeLignes.RemoveRange(cmd.Lignes);
+            _context.Commandes.Remove(cmd);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Bon de commande supprimé." });
+        }
+
         private static CommandeDto MapToDto(Commande c)
         {
             return new CommandeDto

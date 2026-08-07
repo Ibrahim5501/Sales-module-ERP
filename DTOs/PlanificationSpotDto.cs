@@ -22,7 +22,7 @@ namespace example2.DTOs
 
         public int? Id_PlageHoraire { get; set; }
 
-        [JsonConverter(typeof(JsonStringEnumConverter))]
+        [JsonConverter(typeof(StatutPlanificationSpotJsonConverter))]
         public StatutPlanificationSpot Statut { get; set; } = StatutPlanificationSpot.Planifie;
 
         public string? Remarques { get; set; }
@@ -33,11 +33,7 @@ namespace example2.DTOs
         [Required]
         public DateTime DateHeureDiffusion { get; set; }
 
-        public int DureeSecondes { get; set; } = 30;
-
-        public int? Id_PlageHoraire { get; set; }
-
-        [JsonConverter(typeof(JsonStringEnumConverter))]
+        [JsonConverter(typeof(StatutPlanificationSpotJsonConverter))]
         public StatutPlanificationSpot Statut { get; set; } = StatutPlanificationSpot.Planifie;
 
         public string? Remarques { get; set; }
@@ -46,7 +42,7 @@ namespace example2.DTOs
     public class PlanificationSpotStatutUpdateDto
     {
         [Required]
-        [JsonConverter(typeof(JsonStringEnumConverter))]
+        [JsonConverter(typeof(StatutPlanificationSpotJsonConverter))]
         public StatutPlanificationSpot Statut { get; set; } = StatutPlanificationSpot.Planifie;
     }
 

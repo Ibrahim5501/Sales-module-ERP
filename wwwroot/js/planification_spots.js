@@ -36,6 +36,8 @@ function initGridPlanificationSpots() {
         keyExpr: "id_PlanificationSpot",
         showBorders: true,
         columnAutoWidth: true,
+        allowColumnResizing: true,
+        allowColumnReordering: true,
         rowAlternationEnabled: true,
         paging: { pageSize: 10 },
         pager: {
@@ -52,7 +54,7 @@ function initGridPlanificationSpots() {
             {
                 dataField: "numeroCommande",
                 caption: "N° Bon de Commande",
-                width: 160,
+                width: 200,
                 cellTemplate: function (container, options) {
                     const row = options.data;
                     $("<span>")
@@ -68,7 +70,7 @@ function initGridPlanificationSpots() {
             {
                 dataField: "nomPartenaire",
                 caption: "Client / Partenaire",
-                width: 200,
+                width: 250,
                 cellTemplate: function (container, options) {
                     $("<div>")
                         .html(`<strong>${options.value || 'Client'}</strong>`)
@@ -83,7 +85,8 @@ function initGridPlanificationSpots() {
                     $("<div>")
                         .html(`<strong>${row.designationProduit}</strong> <small style="color:#64748b;">(${row.codeProduit})</small>`)
                         .appendTo(container);
-                }
+                },
+                width: 250
             },
             {
                 dataField: "dateHeureDiffusion",
@@ -91,7 +94,7 @@ function initGridPlanificationSpots() {
                 dataType: "datetime",
                 format: "dd/MM/yyyy HH:mm",
                 sortOrder: "asc",
-                width: 170,
+                width: 220,
                 cellTemplate: function (container, options) {
                     const d = new Date(options.value);
                     $("<div>")
@@ -102,14 +105,14 @@ function initGridPlanificationSpots() {
             {
                 dataField: "dureeSecondes",
                 caption: "Durée",
-                width: 80,
+                width: 100,
                 alignment: "center",
                 cellTemplate: (c, o) => $("<span>").text(`${o.value} s`).appendTo(c)
             },
             {
                 dataField: "nomPlageHoraire",
                 caption: "Plage Horaire",
-                width: 150,
+                width: 200,
                 cellTemplate: function (container, options) {
                     const row = options.data;
                     if (!options.value) {
@@ -332,10 +335,17 @@ function afficherModalPlanificationCommande(commande, spots) {
             });
 
             // --- Formulaire ---
-            $("#btn-ajouter-spot-commande").on("click", function () {
-                $("#form-ajout-spot-container").slideDown();
-                initFormNouveauSpot(commande);
-            });
+            if (restants === 0) {
+                $("#btn-ajouter-spot-commande")
+                    .prop("disabled", true)
+                    .css({ opacity: 0.65, cursor: "not-allowed" })
+                    .html("<i class='fa-solid fa-lock'></i> Quota complet (0 restant)");
+            } else {
+                $("#btn-ajouter-spot-commande").on("click", function () {
+                    $("#form-ajout-spot-container").slideDown();
+                    initFormNouveauSpot(commande);
+                });
+            }
             $("#btn-annuler-form-spot").on("click", () => $("#form-ajout-spot-container").slideUp());
             $("#btn-valider-nouveau-spot").on("click", () => enregistrerNouveauSpotCommande(commande.id_Commande));
         }
@@ -353,6 +363,7 @@ function initGridCommandeSpots(spots, commande) {
         keyExpr: "id_PlanificationSpot",
         showBorders: true,
         columnAutoWidth: true,
+        allowColumnResizing: true,
         rowAlternationEnabled: true,
         paging: { pageSize: 8 },
         columns: [
@@ -390,11 +401,11 @@ function initGridCommandeSpots(spots, commande) {
             },
             {
                 caption: "Changer Statut",
-                width: 200,
+                width: 150,
                 alignment: "center",
                 cellTemplate: function (container, options) {
                     const row  = options.data;
-                    const wrap = $("<div style='display:flex; gap:3px; justify-content:center;'>").appendTo(container);
+                    const wrap = $("<div style='display:flex; gap:3px; justify-content:center; flex-direction: column'>").appendTo(container);
 
                     STATUT_LIST.forEach(s => {
                         const btnClass = s === STATUTS_SPOT.PLANIFIE ? "btn-outline-warning"
@@ -410,7 +421,7 @@ function initGridCommandeSpots(spots, commande) {
             },
             {
                 caption: "Action",
-                width: 60,
+                width: 100,
                 alignment: "center",
                 cellTemplate: function (container, options) {
                     $("<button class='btn btn-xs btn-outline-danger' title='Supprimer'>")
@@ -503,20 +514,52 @@ function initSchedulerCommandeSpots(spots, commande) {
     });
 }
 
+// Helper to format local date to ISO without UTC shift (prevents 11h becoming 10h)
+function formatLocalISO(d) {
+    if (!d) return new Date().toISOString();
+    const date = new Date(d);
+    if (isNaN(date.getTime())) return new Date().toISOString();
+    const pad = n => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
+// Helper to resolve read-only plage horaire description for a commande line
+function obtenirPlageInfoPourLigne(l) {
+    if (!l) return "Aucune restriction (Toutes heures autorisées)";
+    if (l.emission) return l.emission;
+    const variante = (window.articlesVariantesData || []).find(v => v.id_Produit === l.id_Produit && v.actif !== false);
+    if (variante && variante.nomPlageHoraire) {
+        return `${variante.nomPlageHoraire} (${variante.heureDebut}-${variante.heureFin})`;
+    }
+    return "Aucune restriction (Toutes heures autorisées)";
+}
+
 // ----------------------------------------------------------------------------
 // INITIALISATION DU FORMULAIRE DE CRÉATION DE SPOT
 // ----------------------------------------------------------------------------
 function initFormNouveauSpot(commande, prefilledDate) {
-    const produitsOptions = (commande.lignes || []).map(l => ({
-        id_CommandeLigne: l.id_CommandeLigne,
-        id_Produit: l.id_Produit,
-        dureeSecondes: l.dureeSecondes || 30,
-        label: `${l.designation || 'Spot'} (${l.dureeSecondes || 30}s — ${l.quantite || 1} spot(s))`
-    }));
+    const produitsOptions = (commande.lignes || []).map(l => {
+        const qteOrdered = Math.round(l.quantite || 1);
+        const qtePlanned = (currentCommandePlannedSpots || []).filter(s => s.id_CommandeLigne === l.id_CommandeLigne && s.statut !== STATUTS_SPOT.ANNULE).length;
+        const qteRemaining = Math.max(0, qteOrdered - qtePlanned);
+        const isEpuise = qteRemaining === 0;
 
-    const defaultProdId  = produitsOptions.length > 0 ? produitsOptions[0].id_Produit : null;
-    const defaultLigneId = produitsOptions.length > 0 ? produitsOptions[0].id_CommandeLigne : null;
-    const defaultDuree   = produitsOptions.length > 0 ? (produitsOptions[0].dureeSecondes || 30) : 30;
+        return {
+            id_CommandeLigne: l.id_CommandeLigne,
+            id_Produit: l.id_Produit,
+            dureeSecondes: l.dureeSecondes || 30,
+            disabled: isEpuise,
+            plageInfo: obtenirPlageInfoPourLigne(l),
+            label: isEpuise
+                ? `${l.designation || 'Spot'} (${l.dureeSecondes || 30}s — 0/${qteOrdered} restant [COMPLET])`
+                : `${l.designation || 'Spot'} (${l.dureeSecondes || 30}s — ${qteRemaining}/${qteOrdered} restant(s))`
+        };
+    });
+
+    const activeOption = produitsOptions.find(o => !o.disabled) || produitsOptions[0];
+    const defaultProdId  = activeOption ? activeOption.id_Produit : null;
+    const defaultLigneId = activeOption ? activeOption.id_CommandeLigne : null;
+    const defaultPlageInfo = activeOption ? activeOption.plageInfo : "Aucune restriction";
 
     const defaultDate = prefilledDate ? new Date(prefilledDate) : (() => {
         const d = new Date(); d.setMinutes(0, 0, 0); return d;
@@ -536,8 +579,7 @@ function initFormNouveauSpot(commande, prefilledDate) {
             id_CommandeLigne:   defaultLigneId,
             id_Produit:         defaultProdId,
             dateHeureDiffusion: defaultDate,
-            dureeSecondes:      defaultDuree,
-            id_PlageHoraire:    commande.id_PlageHoraire || null,
+            plageHoraireInfo:   defaultPlageInfo,
             statut:             STATUTS_SPOT.PLANIFIE,
             remarques:          ""
         },
@@ -556,13 +598,20 @@ function initFormNouveauSpot(commande, prefilledDate) {
                         if (opt) {
                             const inst = formEl.dxForm("instance");
                             inst.updateData("id_CommandeLigne", opt.id_CommandeLigne);
-                            if (opt.dureeSecondes) {
-                                inst.updateData("dureeSecondes", opt.dureeSecondes);
-                            }
+                            inst.updateData("plageHoraireInfo", opt.plageInfo);
                         }
                     }
                 },
                 validationRules: [{ type: "required", message: "Veuillez choisir un spot." }]
+            },
+            {
+                dataField: "plageHoraireInfo",
+                colSpan: 1,
+                label: { text: "Plage Horaire Restrictive (Lecture seule)" },
+                editorType: "dxTextBox",
+                editorOptions: {
+                    readOnly: true
+                }
             },
             {
                 dataField: "dateHeureDiffusion",
@@ -577,27 +626,6 @@ function initFormNouveauSpot(commande, prefilledDate) {
                 validationRules: [{ type: "required", message: "Date/heure requise." }]
             },
             {
-                dataField: "dureeSecondes",
-                colSpan: 1,
-                label: { text: "Durée (secondes)" },
-                editorType: "dxNumberBox",
-                editorOptions: { min: 1, value: 30, format: "#0 s" },
-                validationRules: [{ type: "required" }]
-            },
-            {
-                dataField: "id_PlageHoraire",
-                colSpan: 1,
-                label: { text: "Plage Horaire Restrictive" },
-                editorType: "dxSelectBox",
-                editorOptions: {
-                    dataSource: window.plagesHorairesData || [],
-                    valueExpr: "id_PlageHoraire",
-                    displayExpr: p => `${p.nom} (${p.heureDebut}-${p.heureFin})`,
-                    showClearButton: true,
-                    placeholder: "-- Automatique --"
-                }
-            },
-            {
                 dataField: "statut",
                 colSpan: 1,
                 label: { text: "Statut Initial" },
@@ -609,8 +637,8 @@ function initFormNouveauSpot(commande, prefilledDate) {
             },
             {
                 dataField: "remarques",
-                colSpan: 1,
-                label: { text: "Remarques" },
+                colSpan: 2,
+                label: { text: "Remarques (optionnel)" },
                 editorType: "dxTextBox"
             }
         ]
@@ -634,11 +662,7 @@ function enregistrerNouveauSpotCommande(commandeId) {
         id_Commande:        commandeId,
         id_CommandeLigne:   formData.id_CommandeLigne,
         id_Produit:         formData.id_Produit,
-        dateHeureDiffusion: formData.dateHeureDiffusion
-            ? new Date(formData.dateHeureDiffusion).toISOString()
-            : new Date().toISOString(),
-        dureeSecondes:    parseInt(formData.dureeSecondes) || 30,
-        id_PlageHoraire:  formData.id_PlageHoraire || null,
+        dateHeureDiffusion: formatLocalISO(formData.dateHeureDiffusion),
         statut:           formData.statut || STATUTS_SPOT.PLANIFIE,
         remarques:        formData.remarques || ""
     };

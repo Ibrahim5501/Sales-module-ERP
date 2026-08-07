@@ -315,7 +315,77 @@
                             <div class="alert-list-container" id="dashboard-stock-alerts"></div>
                         </div>
                     </div>
+
+                    <!-- =========================================================== -->
+                    <!-- SECTION ANALYTIQUE : DEVIS / COMMANDES / SPOTS              -->
+                    <!-- =========================================================== -->
+                    <div class="analytics-section-header" style="margin-top:32px; margin-bottom:16px; padding-bottom:10px; border-bottom:2px solid var(--border);">
+                        <h2 style="margin:0; font-size:17px; font-weight:700; color:var(--navy); display:flex; align-items:center; gap:10px;">
+                            <i class="fa-solid fa-chart-pie" style="color:#6366f1;"></i>
+                            Analyse Devis, Commandes & Spots Publicitaires
+                        </h2>
+                        <p style="margin:4px 0 0; font-size:13px; color:var(--text-muted);">Répartitions, conversions et revenus par canal.</p>
+                    </div>
+
+                    <!-- KPI Conversion -->
+                    <div id="analytics-kpi-bar" style="display:flex; gap:16px; margin-bottom:24px; flex-wrap:wrap;"></div>
+
+                    <!-- Row 1 : Pie Devis statut | Pie Commandes statut | Pie Conversion -->
+                    <div class="charts-row" style="margin-bottom:20px;">
+                        <div class="chart-card" style="flex:1; min-width:280px;">
+                            <div class="card-header">
+                                <i class="fa-solid fa-file-pen" style="color:#3b82f6; margin-right:6px;"></i>
+                                <h3 style="display:inline;">Répartition des Devis par Statut</h3>
+                            </div>
+                            <div id="chart-devis-statut" style="height:260px;"></div>
+                        </div>
+                        <div class="chart-card" style="flex:1; min-width:280px;">
+                            <div class="card-header">
+                                <i class="fa-solid fa-cart-shopping" style="color:#10b981; margin-right:6px;"></i>
+                                <h3 style="display:inline;">Répartition des Commandes par Statut</h3>
+                            </div>
+                            <div id="chart-commandes-statut" style="height:260px;"></div>
+                        </div>
+                        <div class="chart-card" style="flex:1; min-width:280px;">
+                            <div class="card-header">
+                                <i class="fa-solid fa-arrows-turn-to-dots" style="color:#f59e0b; margin-right:6px;"></i>
+                                <h3 style="display:inline;">Taux de Conversion Devis → Commande</h3>
+                            </div>
+                            <div id="chart-conversion" style="height:260px;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Row 2 : Bar Plage Horaire | Bar Variante -->
+                    <div class="charts-row" style="margin-bottom:20px;">
+                        <div class="chart-card" style="flex:1.4; min-width:340px;">
+                            <div class="card-header">
+                                <i class="fa-solid fa-clock" style="color:#6366f1; margin-right:6px;"></i>
+                                <h3 style="display:inline;">Revenus par Plage Horaire (par Statut Spot)</h3>
+                            </div>
+                            <div id="chart-plage-horaire-revenu" style="height:300px;"></div>
+                        </div>
+                        <div class="chart-card" style="flex:1; min-width:280px;">
+                            <div class="card-header">
+                                <i class="fa-solid fa-bullhorn" style="color:#ec4899; margin-right:6px;"></i>
+                                <h3 style="display:inline;">Revenus par Spot Publicitaire</h3>
+                            </div>
+                            <div id="chart-spots-revenu" style="height:300px;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Row 3 : Pie Planification spots statut -->
+                    <div class="charts-row" style="margin-bottom:32px;">
+                        <div class="chart-card" style="flex:1; min-width:280px; max-width:400px;">
+                            <div class="card-header">
+                                <i class="fa-solid fa-calendar-days" style="color:#8b5cf6; margin-right:6px;"></i>
+                                <h3 style="display:inline;">Répartition des Planifications Spots par Statut</h3>
+                            </div>
+                            <div id="chart-spots-statut" style="height:280px;"></div>
+                        </div>
+                    </div>
+
                 </section>
+
 
                 <!-- 2. ONGLET : DEVIS -->
                 <section id="pane-devis" class="tab-pane">

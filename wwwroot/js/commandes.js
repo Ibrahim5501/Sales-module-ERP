@@ -71,7 +71,7 @@ async function chargerCommandes() {
                     dataField: "montantTTC",
                     caption: "Montant TTC (TND)",
                     alignment: "right",
-                    width: 160,
+                    width: 270,
                     calculateCellValue: (row) => formatCurrency(row.montantTTC)
                 },
                 {
@@ -165,6 +165,12 @@ function renderCommandeActions(container, options) {
             .html("<i class='fa-solid fa-xmark'></i> Annuler")
             .on("click", () => annulerCommande(c.id_Commande))
             .appendTo($wrapper);
+        // Supprimer
+        $("<button>").addClass("action-btn-dx btn-delete")
+            .html("<i class='fa-solid fa-trash'></i> Supprimer")
+            .attr("title", "Supprimer ce bon de commande (irréversible)")
+            .on("click", () => supprimerCommande(c.id_Commande))
+            .appendTo($wrapper);
     } else if (c.statut === 'Validee') {
         // Facturer
         $("<button>").addClass("action-btn-dx btn-invoice")
@@ -222,6 +228,22 @@ async function facturerCommande(id) {
         }
         const fact = await res.json();
         showToast(`Facture ${fact.numeroFacture} émise avec succès !`);
+        chargerToutesLesDonnees();
+        chargerCommandes();
+    } catch (err) {
+        showToast(err.message, true);
+    }
+}
+
+async function supprimerCommande(id) {
+    if (!confirm("Supprimer définitivement ce bon de commande ? Cette action est irréversible.")) return;
+    try {
+        const res = await fetch(`/api/commandes/${id}`, { method: 'DELETE' });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.message || "Erreur lors de la suppression.");
+        }
+        showToast("Bon de commande supprimé.");
         chargerToutesLesDonnees();
         chargerCommandes();
     } catch (err) {

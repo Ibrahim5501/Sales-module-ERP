@@ -2,6 +2,7 @@
 
 if (typeof configLigneFormInstance === 'undefined') { var configLigneFormInstance = null; }
 if (typeof currentEditingLineIndex === 'undefined') { var currentEditingLineIndex = null; }
+if (typeof currentEditingDevisId === 'undefined') { var currentEditingDevisId = null; }
 
 async function chargerDevis() {
     try {
@@ -162,6 +163,13 @@ function renderDevisActions(container, options) {
         .appendTo($wrap);
 
     if (d.statut === 'Brouillon') {
+        // Modifier
+        $("<button>").addClass("action-btn-dx btn-edit")
+            .html("<i class='fa-solid fa-pen-to-square'></i> Modifier")
+            .attr("title", "Modifier ce devis")
+            .on("click", () => ouvrirEditionDevis(devisId))
+            .appendTo($wrap);
+
         // Envoyer
         $("<button>").addClass("action-btn-dx btn-approve")
             .html("<i class='fa-solid fa-paper-plane'></i> Envoyer")
@@ -181,6 +189,13 @@ function renderDevisActions(container, options) {
         $("<button>").addClass("action-btn-dx btn-cancel")
             .html("<i class='fa-solid fa-xmark'></i> Refuser")
             .on("click", () => refuserDevis(devisId))
+            .appendTo($wrap);
+
+        // Supprimer
+        $("<button>").addClass("action-btn-dx btn-delete")
+            .html("<i class='fa-solid fa-trash'></i> Supprimer")
+            .attr("title", "Supprimer ce devis (irréversible)")
+            .on("click", () => supprimerDevis(devisId))
             .appendTo($wrap);
     }
     else if (d.statut === 'Envoye') {
@@ -440,6 +455,94 @@ async function refuserDevisDepuisPopup(id) {
     await refuserDevis(id);
     const popup = $("#popup-detail-devis").dxPopup("instance");
     if (popup) popup.hide();
+}
+
+async function supprimerDevis(id) {
+    if (!confirm("Supprimer définitivement ce devis en brouillon ? Cette action est irréversible.")) return;
+    try {
+        const res = await fetch(`/api/devis/${id}`, { method: 'DELETE' });
+        if (!res.ok) {
+            const e = await res.json().catch(() => ({}));
+            throw new Error(e.message || e.title || "Erreur lors de la suppression.");
+        }
+        showToast("Devis supprimé.");
+        chargerDevis();
+    } catch (err) {
+        showToast(err.message, true);
+    }
+}
+
+async function ouvrirEditionDevis(id) {
+    try {
+        const res = await fetch(`/api/devis/${id}`);
+        if (!res.ok) throw new Error("Impossible de charger le devis.");
+        const d = await res.json();
+
+        if (d.statut !== 'Brouillon') {
+            showToast("Seuls les devis en brouillon peuvent être modifiés.", true);
+            return;
+        }
+
+        // Set edit mode
+        currentEditingDevisId = d.id_Devis || d.id_devis || id;
+
+        // Populate internal lines from existing devis
+        internalDevisLines = (d.lignes || []).map(l => ({
+            produitId: l.id_Produit,
+            nomVariante: l.designation || l.description || 'Spot',
+            nomSpot: l.designation || l.description || 'Spot',
+            prixUniversitaire: l.prixUniversitaire || 0,
+            dureeSecondes: l.dureeSecondes || 30,
+            quantite: l.quantite || 1,
+            TauxTVA: l.tauxTVA !== undefined ? l.tauxTVA : 19,
+            tauxTVA: l.tauxTVA !== undefined ? l.tauxTVA : 19,
+            remise: l.remise || 0,
+            typeRemise: l.typeRemise || 'Pourcentage',
+            emission: l.emission || ''
+        }));
+
+        // Open popup
+        const popup = $("#popup-devis").dxPopup("instance");
+        if (!popup) return;
+
+        // Update title to indicate edit mode
+        popup.option("title", `Modifier le Devis ${d.numeroDevis || '#' + currentEditingDevisId}`);
+        popup.show();
+
+        // Fill header form
+        const form = $("#dx-form-devis-header").dxForm("instance");
+        if (form) {
+            const clientEditor = form.getEditor("clientId");
+            if (clientEditor) clientEditor.option("dataSource", clientsData || []);
+
+            form.option("formData", {
+                clientId: d.id_Partenaire,
+                adresseFacturation: d.adresseFacturation || '',
+                adresseLivraison: d.adresseLivraison || '',
+                modePaiement: d.modePaiement || 'Virement Bancaire',
+                remiseGlobale: d.remiseGlobale || 0,
+                typeRemiseGlobale: d.typeRemiseGlobale || 'Pourcentage',
+                dateDebutDiffusion: d.dateDebutDiffusion ? new Date(d.dateDebutDiffusion) : null,
+                dateFinDiffusion: d.dateFinDiffusion ? new Date(d.dateFinDiffusion) : null,
+                dateValidite: d.dateValidite ? new Date(d.dateValidite) : new Date(new Date().setDate(new Date().getDate() + 30))
+            });
+        }
+
+        // Update grid with existing lines
+        const grid = $("#dx-grid-devis-lines").dxDataGrid("instance");
+        if (grid) {
+            grid.option("dataSource", internalDevisLines);
+            grid.refresh();
+        }
+
+        // Update the submit button text
+        const submitBtn = $("#popup-devis").find(".dx-toolbar-item .dx-button").filter((_, el) => $(el).find('.dx-button-text').text().includes('Créer'));
+        submitBtn.dxButton("option", "text", "Enregistrer les modifications");
+
+        recalculerTotauxDevisPopup();
+    } catch (err) {
+        showToast(err.message, true);
+    }
 }
 
 
@@ -735,7 +838,7 @@ function initPopupDevis() {
                         dataType: "number",
                         allowEditing: false,
                         alignment: "right",
-                        width: 110,
+                        width: 130,
                         calculateCellValue: (row) => {
                             if (!row || !row.prixUniversitaire) return 0;
                             const qte = row.quantite || 1;
@@ -756,7 +859,7 @@ function initPopupDevis() {
                     },
                     {
                         type: "buttons",
-                        width: 100,
+                        width: 200,
                         buttons: [
                             {
                                 hint: "Modifier",
@@ -818,9 +921,11 @@ function initPopupDevis() {
 
 function ouvrirNouveauDevisPopup() {
     internalDevisLines = [];
+    currentEditingDevisId = null;
 
     const popup = $("#popup-devis").dxPopup("instance");
     if (!popup) return;
+    popup.option("title", "Créer un Devis Commercial");
     popup.show();
 
     const form = $("#dx-form-devis-header").dxForm("instance");
@@ -985,18 +1090,26 @@ async function soumettreDevis() {
     };
 
     try {
-        const res = await fetch('/api/devis', {
-            method: 'POST',
+        const isEditMode = !!currentEditingDevisId;
+        const url = isEditMode ? `/api/devis/${currentEditingDevisId}` : '/api/devis';
+        const method = isEditMode ? 'PUT' : 'POST';
+
+        const res = await fetch(url, {
+            method,
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
         if (!res.ok) {
             const e = await res.json().catch(() => ({}));
-            throw new Error(e.message || e.title || "Erreur de création.");
+            throw new Error(e.message || e.title || (isEditMode ? "Erreur de mise à jour." : "Erreur de création."));
         }
-        showToast("Devis créé en brouillon !");
+        showToast(isEditMode ? "Devis mis à jour !" : "Devis créé en brouillon !");
+        currentEditingDevisId = null;
         const popup = $("#popup-devis").dxPopup("instance");
-        if (popup) popup.hide();
+        if (popup) {
+            popup.option("title", "Créer un Devis Commercial");
+            popup.hide();
+        }
         chargerDevis();
     } catch (err) {
         showToast(err.message, true);

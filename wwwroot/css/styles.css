@@ -857,6 +857,30 @@ body.dark-mode .dx-overlay-content.dx-popup-normal { background: var(--bg-white)
             color: #fff;
         }
 
+    /* Delete (darker red) */
+    .action-btn-dx.btn-delete {
+        background: #fef2f2;
+        color: #991b1b;
+        border-color: #fecaca;
+    }
+
+        .action-btn-dx.btn-delete:hover {
+            background: #991b1b;
+            color: #fff;
+        }
+
+    /* Edit (indigo) */
+    .action-btn-dx.btn-edit {
+        background: #eef2ff;
+        color: #4338ca;
+        border-color: #c7d2fe;
+    }
+
+        .action-btn-dx.btn-edit:hover {
+            background: #4338ca;
+            color: #fff;
+        }
+
 /* ================================================================
    STATUS BADGES
    ================================================================ */

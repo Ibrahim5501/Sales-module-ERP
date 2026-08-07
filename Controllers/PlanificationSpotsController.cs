@@ -101,8 +101,39 @@ namespace example2.Controllers
                 });
             }
 
-            // Resolve PlageHoraire restriction (Explicit DTO)
+            // Resolve CommandeLigne / Produit for DureeSecondes and PlageHoraire
+            CommandeLigne? cmdLigne = null;
+            if (dto.Id_CommandeLigne.HasValue)
+            {
+                cmdLigne = await _context.CommandeLignes
+                    .Include(cl => cl.Produit)
+                    .FirstOrDefaultAsync(cl => cl.Id_CommandeLigne == dto.Id_CommandeLigne.Value);
+            }
+            else
+            {
+                cmdLigne = await _context.CommandeLignes
+                    .Include(cl => cl.Produit)
+                    .FirstOrDefaultAsync(cl => cl.Id_Commande == dto.Id_Commande && cl.Id_Produit == dto.Id_Produit);
+            }
+
+            int dureeSecondes = cmdLigne?.DureeSecondes > 0
+                ? cmdLigne.DureeSecondes
+                : (await _context.Produits.Where(p => p.Id_Produit == dto.Id_Produit).Select(p => (int?)p.DureeSecondes).FirstOrDefaultAsync() ?? 30);
+
+            // Resolve PlageHoraire strictly from the spot (ArticleVariante or CommandeLigne.Emission or Produit)
             int? idPlage = dto.Id_PlageHoraire;
+            if (!idPlage.HasValue && cmdLigne != null && !string.IsNullOrEmpty(cmdLigne.Emission))
+            {
+                var plageMatch = await _context.PlagesHoraires.FirstOrDefaultAsync(p => cmdLigne.Emission.Contains(p.Nom));
+                if (plageMatch != null) idPlage = plageMatch.Id_PlageHoraire;
+            }
+
+            if (!idPlage.HasValue)
+            {
+                var variante = await _context.ArticlesVariantes.FirstOrDefaultAsync(av => av.Id_Produit == dto.Id_Produit && av.Actif);
+                if (variante != null && variante.Id_PlageHoraire > 0) idPlage = variante.Id_PlageHoraire;
+            }
+
             PlageHoraire? plage = null;
             if (idPlage.HasValue)
             {
@@ -112,7 +143,7 @@ namespace example2.Controllers
             // 1. Restriction par la plage horaire désignée sur le spot
             if (plage != null && plage.Actif)
             {
-                var checkRange = ValidateTimeWindow(dto.DateHeureDiffusion, dto.DureeSecondes, plage);
+                var checkRange = ValidateTimeWindow(dto.DateHeureDiffusion, dureeSecondes, plage);
                 if (!checkRange.isValid)
                     return BadRequest(new { message = checkRange.errorMessage });
             }
@@ -120,7 +151,7 @@ namespace example2.Controllers
             // 2. Validation d'absence de chevauchement
             if (dto.Statut != StatutPlanificationSpot.Annule)
             {
-                var conflict = await CheckOverlapConflict(dto.DateHeureDiffusion, dto.DureeSecondes, null);
+                var conflict = await CheckOverlapConflict(dto.DateHeureDiffusion, dureeSecondes, null);
                 if (conflict != null)
                 {
                     return BadRequest(new
@@ -133,13 +164,29 @@ namespace example2.Controllers
                 }
             }
 
+            // Validate quota: cannot schedule more spots than ordered in CommandeLigne
+            if (cmdLigne != null && cmdLigne.Quantite > 0)
+            {
+                int countPlanned = await _context.PlanificationSpots
+                    .Where(ps => ps.Id_CommandeLigne == cmdLigne.Id_CommandeLigne && ps.StatutString != "Annulé")
+                    .CountAsync();
+
+                if (countPlanned >= (int)cmdLigne.Quantite)
+                {
+                    return BadRequest(new
+                    {
+                        message = $"Quota atteint : Vous avez déjà planifié {countPlanned} spot(s) sur les {((int)cmdLigne.Quantite)} ordonnés pour le spot '{cmdLigne.Description}'."
+                    });
+                }
+            }
+
             var spotPlan = new PlanificationSpot
             {
                 Id_Commande        = dto.Id_Commande,
-                Id_CommandeLigne   = dto.Id_CommandeLigne,
+                Id_CommandeLigne   = cmdLigne?.Id_CommandeLigne ?? dto.Id_CommandeLigne,
                 Id_Produit         = dto.Id_Produit,
                 DateHeureDiffusion = dto.DateHeureDiffusion,
-                DureeSecondes      = dto.DureeSecondes > 0 ? dto.DureeSecondes : 30,
+                DureeSecondes      = dureeSecondes,
                 Id_PlageHoraire    = idPlage,
                 Statut             = dto.Statut,
                 Remarques          = dto.Remarques
@@ -188,21 +235,23 @@ namespace example2.Controllers
                 });
             }
 
-            int? idPlage = dto.Id_PlageHoraire ?? existing.Id_PlageHoraire;
+            int dureeSecondes = existing.DureeSecondes;
+            int? idPlage = existing.Id_PlageHoraire;
+
             PlageHoraire? plage = null;
             if (idPlage.HasValue)
                 plage = await _context.PlagesHoraires.FirstOrDefaultAsync(p => p.Id_PlageHoraire == idPlage.Value);
 
             if (plage != null && plage.Actif)
             {
-                var checkRange = ValidateTimeWindow(dto.DateHeureDiffusion, dto.DureeSecondes, plage);
+                var checkRange = ValidateTimeWindow(dto.DateHeureDiffusion, dureeSecondes, plage);
                 if (!checkRange.isValid)
                     return BadRequest(new { message = checkRange.errorMessage });
             }
 
             if (dto.Statut != StatutPlanificationSpot.Annule)
             {
-                var conflict = await CheckOverlapConflict(dto.DateHeureDiffusion, dto.DureeSecondes, id);
+                var conflict = await CheckOverlapConflict(dto.DateHeureDiffusion, dureeSecondes, id);
                 if (conflict != null)
                 {
                     return BadRequest(new
@@ -216,8 +265,6 @@ namespace example2.Controllers
             }
 
             existing.DateHeureDiffusion = dto.DateHeureDiffusion;
-            existing.DureeSecondes      = dto.DureeSecondes > 0 ? dto.DureeSecondes : 30;
-            existing.Id_PlageHoraire    = idPlage;
             existing.Statut             = dto.Statut;
             existing.Remarques          = dto.Remarques;
             await _context.SaveChangesAsync();
