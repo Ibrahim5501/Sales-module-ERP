@@ -37,8 +37,6 @@ namespace example2.Models
 
         public DateTime? DateFinDiffusion { get; set; }
 
-        [JsonIgnore]
-        public Facture? Facture { get; set; }
 
         [JsonIgnore]
         public ICollection<Livraison> Livraisons { get; set; } = new List<Livraison>();

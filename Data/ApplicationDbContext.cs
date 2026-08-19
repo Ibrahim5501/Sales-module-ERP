@@ -126,12 +126,12 @@ public class ApplicationDbContext : DbContext
             .OnDelete(DeleteBehavior.Restrict);
 
         //----------------------------------------------------
-        // Facture -> Commande (1-1)
+        // Facture -> Devis (1-1)
         //----------------------------------------------------
         modelBuilder.Entity<Facture>()
-            .HasOne(f => f.Commande)
-            .WithOne(c => c.Facture)
-            .HasForeignKey<Facture>(f => f.Id_Commande)
+            .HasOne(f => f.Devis)
+            .WithOne(d => d.Facture)
+            .HasForeignKey<Facture>(f => f.Id_Devis)
             .OnDelete(DeleteBehavior.Restrict);
 
         //----------------------------------------------------

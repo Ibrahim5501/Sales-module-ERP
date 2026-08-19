@@ -237,7 +237,7 @@
                 <!-- 1. ONGLET : TABLEAU DE BORD -->
                 <section id="pane-tableau-bord" class="tab-pane active">
                     <!-- En-tête de page -->
-                    <div class="page-header">
+                    <!--<div class="page-header">
                         <div class="page-header-left">
                             <h1><i class="fa-solid fa-chart-line"></i> Tableau de bord</h1>
                             <p>Performances et indicateurs des ventes en temps réel.</p>
@@ -247,10 +247,10 @@
                                 <span class="pulse-dot"></span> Données en temps réel
                             </div>
                         </div>
-                    </div>
+                    </div>-->
 
                     <!-- CARTES KPI -->
-                    <div class="kpi-grid">
+                    <!--<div class="kpi-grid">
                         <div class="kpi-card">
                             <div class="kpi-icon-wrap ca">
                                 <i class="fa-solid fa-dollar-sign"></i>
@@ -281,10 +281,10 @@
                                 <div class="kpi-sub kpi-sub-danger" id="kpi-taux-recouvrement">Recouvrement : 0%</div>
                             </div>
                         </div>
-                    </div>
+                    </div>-->
 
                     <!-- SECTION DE GRAPHES DEVEXTREME -->
-                    <div class="charts-row">
+                    <!--<div class="charts-row">
                         <div class="chart-card large">
                             <div class="card-header">
                                 <h3>Évolution des Ventes vs Encaissements (6 mois)</h3>
@@ -297,10 +297,10 @@
                             </div>
                             <div id="chart-categories" class="devextreme-chart"></div>
                         </div>
-                    </div>
+                    </div>-->
 
                     <!-- GRID INFÉRIEURE : TOP CLIENTS & ALERTE STOCKS -->
-                    <div class="dashboard-bottom-grid">
+                    <!--<div class="dashboard-bottom-grid">
                         <div class="table-card">
                             <div class="card-header-flex">
                                 <h3>Top Clients (Volume d'achats)</h3>
@@ -314,7 +314,7 @@
                             </div>
                             <div class="alert-list-container" id="dashboard-stock-alerts"></div>
                         </div>
-                    </div>
+                    </div>-->
 
                     <!-- =========================================================== -->
                     <!-- SECTION ANALYTIQUE : DEVIS / COMMANDES / SPOTS              -->
@@ -514,6 +514,16 @@
                             <h1><i class="fa-solid fa-calendar-days"></i> Planification des Spots Publicitaires</h1>
                             <p>Programmation des diffusions par bon de commande, contrôle des créneaux et statuts.</p>
                         </div>
+                        <div class="page-header-right">
+                            <div class="btn-group-toggle" id="btn-grp-spots-global-view">
+                                <button id="btn-view-spots-grid" class="btn btn-sm active">
+                                    <i class="fa-solid fa-table-list"></i> Vue Grille
+                                </button>
+                                <button id="btn-view-spots-calendar" class="btn btn-sm">
+                                    <i class="fa-solid fa-calendar-days"></i> Calendrier Broadcast
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- KPI Planification Spots -->
@@ -552,8 +562,11 @@
                         </div>
                     </div>
 
-                    <div class="grid-wrapper">
+                    <div class="grid-wrapper" id="wrapper-planification-spots-grid">
                         <div id="grid-planification-spots" class="devextreme-grid"></div>
+                    </div>
+                    <div class="grid-wrapper" id="wrapper-planification-spots-calendar" style="display: none; height: calc(100vh - 275px); min-height: 600px; padding: 12px; background: var(--bg-white); border-radius: var(--r-md); border: 1px solid var(--border); box-shadow: var(--shadow-sm);">
+                        <div id="scheduler-global-spots" style="height: 100%;"></div>
                     </div>
                 </section>
 

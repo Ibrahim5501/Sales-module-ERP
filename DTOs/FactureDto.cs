@@ -1,11 +1,12 @@
 using example2.Models;
 using System;
+using System.Collections.Generic;
 
 namespace example2.DTOs
 {
     public class FactureCreateDto
     {
-        public int Id_Commande { get; set; }
+        public int Id_Devis { get; set; }
 
         public int Id_Partenaire { get; set; }
     }
@@ -24,6 +25,10 @@ namespace example2.DTOs
 
         public DateTime DateEcheance { get; set; }
 
+        public decimal MontantHT { get; set; }
+
+        public decimal MontantTVA { get; set; }
+
         public decimal MontantTotal { get; set; }
 
         public decimal MontantPaye { get; set; }
@@ -32,13 +37,10 @@ namespace example2.DTOs
 
         public FactureStatut Statut { get; set; }
 
-        public int Id_Commande { get; set; }
-        
-        public string? NumeroCommande { get; set; }
+        public string? NumeroDevis { get; set; }
 
-        public int Id_Partenaire { get; set; }
-        
         public string? NomPartenaire { get; set; }
 
+        public List<DevisLigneDto> Lignes { get; set; } = new();
     }
 }

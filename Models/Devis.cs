@@ -46,6 +46,8 @@ namespace example2.Models
         public ICollection<DevisLigne> Lignes { get; set; } = new List<DevisLigne>();
 
         public Commande? Commande { get; set; }
+
+        public Facture? Facture { get; set; }
     }
 
     public enum DevisStatut

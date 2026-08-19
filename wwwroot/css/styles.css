@@ -1254,3 +1254,275 @@ body.dark-mode .dx-data-row > td {
 
 /* Input helper */
 .input-helper { font-size: 11px; color: var(--text-light); }
+
+/* ================================================================
+   PLANIFICATION DES SPOTS - CALENDRIER & CARTES DE DIFFUSION
+   ================================================================ */
+.spot-card-tile {
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 4px 6px;
+    border-radius: var(--r-sm);
+    font-family: var(--font);
+    font-size: 11.5px;
+    line-height: 1.25;
+    color: #ffffff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform var(--t), box-shadow var(--t);
+    border-left: 3.5px solid rgba(255, 255, 255, 0.85);
+}
+
+.spot-card-tile:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.20);
+}
+
+.spot-card-tile.status-planifie {
+    background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+    border-left-color: #fef08a;
+}
+
+.spot-card-tile.status-diffuse {
+    background: linear-gradient(135deg, #15803d 0%, #166534 100%);
+    border-left-color: #86efac;
+}
+
+.spot-card-tile.status-annule {
+    background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+    border-left-color: #fca5a5;
+    opacity: 0.85;
+    text-decoration: line-through;
+}
+
+.spot-tile-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 2px;
+    font-size: 10.5px;
+    font-weight: 700;
+}
+
+.spot-tile-time {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+}
+
+.spot-tile-duration {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    background: rgba(0, 0, 0, 0.25);
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-size: 9.5px;
+    font-weight: 800;
+    letter-spacing: 0.2px;
+    white-space: nowrap;
+}
+
+.spot-tile-title {
+    font-weight: 700;
+    font-size: 11.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 2px;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.spot-tile-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 4px;
+    font-size: 9.5px;
+    opacity: 0.95;
+    overflow: hidden;
+}
+
+.spot-tile-client {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 120px;
+    font-style: italic;
+}
+
+.spot-tile-badge {
+    background: rgba(255, 255, 255, 0.22);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 8.5px;
+    letter-spacing: 0.3px;
+}
+
+/* Tooltip Popover Rich Card */
+.spot-tooltip-card {
+    min-width: 290px;
+    max-width: 380px;
+    padding: 4px;
+    font-family: var(--font);
+}
+
+.spot-tooltip-header {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: var(--r-sm);
+    padding: 8px 10px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.spot-tooltip-title-wrap {
+    flex: 1;
+    min-width: 0;
+}
+
+.spot-tooltip-title {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.3;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.spot-tooltip-code {
+    display: inline-block;
+    font-size: 11px;
+    color: #64748b;
+    font-family: monospace;
+    margin-top: 2px;
+}
+
+.spot-tooltip-badges {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.spot-duration-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #e0f2fe;
+    color: #0369a1;
+    border: 1px solid #bae6fd;
+    padding: 2px 7px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.spot-tooltip-body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 12.5px;
+    margin-bottom: 12px;
+}
+
+.spot-tooltip-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 3px 0;
+    border-bottom: 1px dashed #f1f5f9;
+}
+
+.spot-tooltip-label {
+    color: #64748b;
+    font-size: 11.5px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 0;
+}
+
+.spot-tooltip-value {
+    color: #1e293b;
+    text-align: right;
+    font-size: 12px;
+    word-break: break-word;
+}
+
+.spot-tooltip-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #e2e8f0;
+}
+
+.spot-status-btn-group {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
+/* Scheduler customization for broadcast time precision */
+.dx-scheduler-appointment {
+    min-height: 28px !important;
+    border-radius: var(--r-sm) !important;
+    overflow: visible !important;
+}
+
+.dx-scheduler-work-space .dx-scheduler-cell-sizes-horizontal {
+    min-width: 70px;
+}
+
+.dx-scheduler-timeline .dx-scheduler-appointment {
+    min-width: 60px !important;
+}
+
+/* Button toggle group styling */
+.btn-group-toggle {
+    display: inline-flex;
+    border-radius: var(--r-md);
+    overflow: hidden;
+    border: 1px solid var(--border);
+    background: var(--bg-app);
+}
+
+.btn-group-toggle .btn {
+    border-radius: 0;
+    border: none;
+    padding: 6px 14px;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--text-muted);
+    background: transparent;
+    transition: all var(--t);
+}
+
+.btn-group-toggle .btn.active,
+.btn-group-toggle .btn:hover {
+    background: var(--navy);
+    color: #ffffff;
+}
+
+.btn-group-toggle .btn.active {
+    font-weight: 600;
+}
+

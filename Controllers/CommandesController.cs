@@ -198,55 +198,6 @@ namespace example2.Controllers
             return Ok(MapToDto(cmd));
         }
 
-        [HttpPost("{id}/facturer")]
-        public async Task<ActionResult<FactureDto>> Facturer(long id)
-        {
-            var now = DateTime.Now;
-
-            var cmd = await _context.Commandes.Include(c => c.Lignes).FirstOrDefaultAsync(c => c.Id_Commande == id);
-            if (cmd == null || cmd.Statut != CommandeStatut.Validee)
-                return BadRequest(new { message = "Impossible de générer la facture. La commande doit d'abord être validée et ne pas être déjà facturée." });
-
-            cmd.Statut = CommandeStatut.Facutree;
-
-            var client = await _context.Partenaires.FirstOrDefaultAsync(p => p.Id_Partenaire == cmd.Id_Partenaire);
-
-            var fact = new Facture
-            {
-                Id_Commande = cmd.Id_Commande,
-                Id_Partenaire = cmd.Id_Partenaire,
-                DateFacture = cmd.DateCommande,
-                DateEcheance = cmd.DateCommande.AddDays(30),
-                MontantTotal = cmd.MontantTTC,
-                MontantPaye = 0,
-                Statut = FactureStatut.NonPayee,
-            };
-
-            int next = (_context.Factures.Max(d => (int?)d.Id_Facture) ?? 0) + 1;
-            fact.NumeroFacture = $"FAC-{now.Year}-{next:D3}";
-
-            _context.Factures.Add(fact);
-            await _context.SaveChangesAsync();
-
-            var factDto = new FactureDto
-            {
-                Id_Facture = fact.Id_Facture,
-                NumeroFacture = fact.NumeroFacture,
-                Id_Commande = fact.Id_Commande,
-                NumeroCommande = cmd.NumeroCommande,
-                Id_Partenaire = fact.Id_Partenaire,
-                NomPartenaire = client != null ? $"{client.Nom} ({client.Entreprise})" : $"Partenaire #{fact.Id_Partenaire}",
-                DateFacture = fact.DateFacture,
-                DateEcheance = fact.DateEcheance,
-                MontantTotal = fact.MontantTotal,
-                MontantPaye = fact.MontantPaye,
-                MontantRestant = fact.MontantTotal - fact.MontantPaye,
-                Statut = fact.Statut
-            };
-
-            return Ok(factDto);
-        }
-
         [HttpDelete("{id}")]
         public async Task<ActionResult> Delete(long id)
         {

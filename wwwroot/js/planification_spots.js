@@ -17,15 +17,211 @@ const STATUT_COLORS = {
     [STATUTS_SPOT.ANNULE]:   { badge: "badge-danger",   hex: "#ef4444" }
 };
 
-let currentCommandePlanning  = null;
+// Scheduler view configurations optimized for broadcast spot planning
+const SPOT_SCHEDULER_VIEWS = [
+    { type: "timelineDay",  name: "Timeline (Jour)",    cellDuration: 15 },
+    { type: "timelineWeek", name: "Timeline (Semaine)", cellDuration: 60 },
+    { type: "day",          name: "Grille Jour",        cellDuration: 15 },
+    { type: "week",         name: "Grille Semaine",     cellDuration: 30 },
+    { type: "month",        name: "Mois" },
+    { type: "agenda",       name: "Agenda (Liste)",     agendaDuration: 7 }
+];
+
+let currentCommandePlanning     = null;
 let currentCommandePlannedSpots = [];
-let currentViewMode = "grid"; // "grid" | "calendar"
+let currentViewMode             = "grid"; // "grid" | "calendar" (modal)
+let currentGlobalSpotsView      = "grid"; // "grid" | "calendar" (main page)
 
 $(document).ready(function () {
     if ($("#grid-planification-spots").length) {
         initGridPlanificationSpots();
+        initGlobalSpotsViewSwitchers();
     }
 });
+
+// ----------------------------------------------------------------------------
+// HELPER: MAPPING SPOT -> DEVEXTREME SCHEDULER APPOINTMENT
+// ----------------------------------------------------------------------------
+// Broadcast spots usually last between 10 to 60 seconds.
+// In standard calendar scales, a 30s event is < 1px tall and completely illegible.
+// We map each spot with a visual duration of 15 minutes for optimal layout geometry
+// while preserving and displaying the exact second-level timestamps.
+function mapSpotToSchedulerAppointment(s) {
+    const realStart = new Date(s.dateHeureDiffusion);
+    const dureeSec  = Math.max(1, s.dureeSecondes || 30);
+    const realEnd   = new Date(realStart.getTime() + dureeSec * 1000);
+
+    // 15 minutes visual block for scheduler tile rendering
+    const VISUAL_MINUTES_MS = 15 * 60 * 1000;
+    const visualEnd = new Date(Math.max(realEnd.getTime(), realStart.getTime() + VISUAL_MINUTES_MS));
+    const colorInfo = STATUT_COLORS[s.statut] || STATUT_COLORS[STATUTS_SPOT.PLANIFIE];
+
+    const pad = n => String(n).padStart(2, '0');
+    const startHourStr = `${pad(realStart.getHours())}:${pad(realStart.getMinutes())}:${pad(realStart.getSeconds())}`;
+    const endHourStr   = `${pad(realEnd.getHours())}:${pad(realEnd.getMinutes())}:${pad(realEnd.getSeconds())}`;
+
+    return {
+        id:           s.id_PlanificationSpot,
+        text:         `${s.designationProduit || 'Spot'} (${dureeSec}s)`,
+        startDate:    realStart,
+        endDate:      visualEnd,
+        color:        colorInfo.hex,
+        spotData:     s,
+        realStart:    realStart,
+        realEnd:      realEnd,
+        startTimeStr: startHourStr,
+        endTimeStr:   endHourStr,
+        dureeSec:     dureeSec,
+        statut:       s.statut || STATUTS_SPOT.PLANIFIE
+    };
+}
+
+// ----------------------------------------------------------------------------
+// TEMPLATE: APPOINTMENT TILE (HIGH READABILITY FOR BROADCAST SPOTS)
+// ----------------------------------------------------------------------------
+function renderSpotAppointmentTemplate(model, index, element) {
+    const appt = model.appointmentData;
+    const s = appt.spotData || {};
+    const statut = s.statut || STATUTS_SPOT.PLANIFIE;
+    const statutKey = statut === STATUTS_SPOT.DIFFUSE ? 'diffuse' : (statut === STATUTS_SPOT.ANNULE ? 'annule' : 'planifie');
+    const dureeSec = appt.dureeSec || s.dureeSecondes || 30;
+
+    element.empty();
+    element.addClass("dx-scheduler-appointment-custom");
+
+    const tile = $(`
+        <div class="spot-card-tile status-${statutKey}" title="${s.designationProduit || 'Spot'} — ${statut} (${dureeSec}s à ${appt.startTimeStr})">
+            <div class="spot-tile-header">
+                <span class="spot-tile-time">
+                    <i class="fa-regular fa-clock"></i> ${appt.startTimeStr}
+                </span>
+                <span class="spot-tile-duration">
+                    <i class="fa-solid fa-stopwatch"></i> ${dureeSec}s
+                </span>
+            </div>
+            <div class="spot-tile-title">
+                ${s.designationProduit || 'Spot Publicitaire'}
+            </div>
+            <div class="spot-tile-footer">
+                <span class="spot-tile-badge">${statut}</span>
+                ${s.nomPartenaire ? `<span class="spot-tile-client" title="${s.nomPartenaire}"><i class="fa-solid fa-user-tie"></i> ${s.nomPartenaire}</span>` : (s.nomPlageHoraire ? `<span class="spot-tile-client">${s.nomPlageHoraire}</span>` : '')}
+            </div>
+        </div>
+    `);
+
+    element.append(tile);
+}
+
+// ----------------------------------------------------------------------------
+// TEMPLATE: RICH TOOLTIP POPOVER CARD WITH 1-CLICK ACTIONS
+// ----------------------------------------------------------------------------
+function renderSpotTooltipTemplate(model, index, element) {
+    const appt = model.appointmentData;
+    const s = appt.spotData || {};
+    const statut = s.statut || STATUTS_SPOT.PLANIFIE;
+    const dureeSec = appt.dureeSec || s.dureeSecondes || 30;
+    const colorInfo = STATUT_COLORS[statut] || STATUT_COLORS[STATUTS_SPOT.PLANIFIE];
+
+    const realStart = appt.realStart || new Date(s.dateHeureDiffusion);
+    const dateFormatted = realStart.toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+    const isPlanifie = statut === STATUTS_SPOT.PLANIFIE;
+    const isDiffuse  = statut === STATUTS_SPOT.DIFFUSE;
+    const isAnnule   = statut === STATUTS_SPOT.ANNULE;
+
+    element.empty();
+
+    const tooltipCard = $(`
+        <div class="spot-tooltip-card">
+            <div class="spot-tooltip-header" style="border-left: 4px solid ${colorInfo.hex};">
+                <div class="spot-tooltip-title-wrap">
+                    <div class="spot-tooltip-title">
+                        <i class="fa-solid fa-tower-broadcast" style="color:${colorInfo.hex};"></i>
+                        ${s.designationProduit || 'Spot Publicitaire'}
+                    </div>
+                    ${s.codeProduit ? `<span class="spot-tooltip-code">${s.codeProduit}</span>` : ''}
+                </div>
+                <div class="spot-tooltip-badges">
+                    <span class="badge ${colorInfo.badge}">${statut}</span>
+                    <span class="spot-duration-pill"><i class="fa-solid fa-stopwatch"></i> ${dureeSec}s</span>
+                </div>
+            </div>
+
+            <div class="spot-tooltip-body">
+                <div class="spot-tooltip-row">
+                    <div class="spot-tooltip-label"><i class="fa-regular fa-calendar" style="color:#3b82f6;"></i> Date :</div>
+                    <div class="spot-tooltip-value"><strong>${dateFormatted}</strong></div>
+                </div>
+                <div class="spot-tooltip-row">
+                    <div class="spot-tooltip-label"><i class="fa-regular fa-clock" style="color:#f59e0b;"></i> Créneau précis :</div>
+                    <div class="spot-tooltip-value">
+                        <strong style="color:#1e40af; font-size:13px;">${appt.startTimeStr}</strong>
+                        <span style="color:#64748b; margin:0 3px;">➔</span>
+                        <strong style="color:#1e40af; font-size:13px;">${appt.endTimeStr}</strong>
+                        <span class="badge badge-secondary" style="font-size:10px; margin-left:5px;">${dureeSec} sec</span>
+                    </div>
+                </div>
+                ${s.nomPartenaire ? `
+                <div class="spot-tooltip-row">
+                    <div class="spot-tooltip-label"><i class="fa-solid fa-user-tie" style="color:#10b981;"></i> Client :</div>
+                    <div class="spot-tooltip-value"><strong>${s.nomPartenaire}</strong></div>
+                </div>` : ''}
+                ${(s.numeroCommande || s.id_Commande) ? `
+                <div class="spot-tooltip-row">
+                    <div class="spot-tooltip-label"><i class="fa-solid fa-file-invoice" style="color:#8b5cf6;"></i> N° Commande :</div>
+                    <div class="spot-tooltip-value">
+                        <button type="button" class="btn btn-link btn-xs btn-open-cmd-modal" style="font-weight:700; padding:0; color:#2563eb; text-decoration:underline;">
+                            <i class="fa-solid fa-cart-shopping"></i> ${s.numeroCommande || ('CMD-' + s.id_Commande)}
+                        </button>
+                    </div>
+                </div>` : ''}
+                <div class="spot-tooltip-row">
+                    <div class="spot-tooltip-label"><i class="fa-solid fa-sliders" style="color:#ec4899;"></i> Plage Horaire :</div>
+                    <div class="spot-tooltip-value">
+                        ${s.nomPlageHoraire ? `<span>${s.nomPlageHoraire} (${s.heureDebutPlage || ''}-${s.heureFinPlage || ''})</span>` : '<span style="color:#94a3b8; font-style:italic;">Libre</span>'}
+                    </div>
+                </div>
+                ${s.remarques ? `
+                <div class="spot-tooltip-row">
+                    <div class="spot-tooltip-label"><i class="fa-regular fa-comment" style="color:#64748b;"></i> Note :</div>
+                    <div class="spot-tooltip-value" style="font-style:italic; color:#475569;">${s.remarques}</div>
+                </div>` : ''}
+            </div>
+
+            <div class="spot-tooltip-actions">
+                <div class="spot-status-btn-group">
+                    <button type="button" class="btn btn-xs ${isPlanifie ? 'btn-warning active' : 'btn-outline-warning'} btn-tooltip-statut" data-statut="${STATUTS_SPOT.PLANIFIE}" ${isPlanifie ? 'disabled' : ''}>
+                        <i class="fa-solid fa-clock"></i> Planifié
+                    </button>
+                    <button type="button" class="btn btn-xs ${isDiffuse ? 'btn-success active' : 'btn-outline-success'} btn-tooltip-statut" data-statut="${STATUTS_SPOT.DIFFUSE}" ${isDiffuse ? 'disabled' : ''}>
+                        <i class="fa-solid fa-check"></i> Diffusé
+                    </button>
+                    <button type="button" class="btn btn-xs ${isAnnule ? 'btn-danger active' : 'btn-outline-danger'} btn-tooltip-statut" data-statut="${STATUTS_SPOT.ANNULE}" ${isAnnule ? 'disabled' : ''}>
+                        <i class="fa-solid fa-ban"></i> Annulé
+                    </button>
+                </div>
+                <button type="button" class="btn btn-xs btn-outline-danger btn-tooltip-delete" title="Supprimer cette diffusion">
+                    <i class="fa-solid fa-trash"></i>
+                </button>
+            </div>
+        </div>
+    `);
+
+    tooltipCard.find(".btn-tooltip-statut").on("click", function () {
+        const targetStatut = $(this).data("statut");
+        majStatutSpotQuick(s.id_PlanificationSpot, targetStatut);
+    });
+
+    tooltipCard.find(".btn-tooltip-delete").on("click", function () {
+        supprimerSpotPlanifie(s.id_PlanificationSpot);
+    });
+
+    tooltipCard.find(".btn-open-cmd-modal").on("click", function () {
+        ouvrirPopupPlanificationCommande(s.id_Commande);
+    });
+
+    element.append(tooltipCard);
+}
 
 // ----------------------------------------------------------------------------
 // 1. GRID PRINCIPALE: TOUS LES SPOTS PLANIFIÉS
@@ -83,7 +279,7 @@ function initGridPlanificationSpots() {
                 cellTemplate: function (container, options) {
                     const row = options.data;
                     $("<div>")
-                        .html(`<strong>${row.designationProduit}</strong> <small style="color:#64748b;">(${row.codeProduit})</small>`)
+                        .html(`<strong>${row.designationProduit || 'Spot'}</strong> <small style="color:#64748b;">(${row.codeProduit || ''})</small>`)
                         .appendTo(container);
                 },
                 width: 250
@@ -92,13 +288,13 @@ function initGridPlanificationSpots() {
                 dataField: "dateHeureDiffusion",
                 caption: "Date & Heure Diffusion",
                 dataType: "datetime",
-                format: "dd/MM/yyyy HH:mm",
+                format: "dd/MM/yyyy HH:mm:ss",
                 sortOrder: "asc",
                 width: 220,
                 cellTemplate: function (container, options) {
                     const d = new Date(options.value);
                     $("<div>")
-                        .html(`<i class="fa-regular fa-calendar" style="color:#3b82f6;"></i> ${d.toLocaleDateString('fr-FR')} &nbsp;<i class="fa-regular fa-clock"></i> ${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`)
+                        .html(`<i class="fa-regular fa-calendar" style="color:#3b82f6;"></i> ${d.toLocaleDateString('fr-FR')} &nbsp;<i class="fa-regular fa-clock"></i> <strong>${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</strong>`)
                         .appendTo(container);
                 }
             },
@@ -107,7 +303,7 @@ function initGridPlanificationSpots() {
                 caption: "Durée",
                 width: 100,
                 alignment: "center",
-                cellTemplate: (c, o) => $("<span>").text(`${o.value} s`).appendTo(c)
+                cellTemplate: (c, o) => $("<span>").addClass("spot-duration-pill").html(`<i class="fa-solid fa-stopwatch"></i> ${o.value}s`).appendTo(c)
             },
             {
                 dataField: "nomPlageHoraire",
@@ -118,7 +314,7 @@ function initGridPlanificationSpots() {
                     if (!options.value) {
                         $("<span style='color:#94a3b8; font-style:italic;'>").text("Libre").appendTo(container);
                     } else {
-                        $("<span>").text(`${options.value} (${row.heureDebutPlage}-${row.heureFinPlage})`).appendTo(container);
+                        $("<span>").text(`${options.value} (${row.heureDebutPlage || ''}-${row.heureFinPlage || ''})`).appendTo(container);
                     }
                 }
             },
@@ -159,7 +355,77 @@ function initGridPlanificationSpots() {
     });
 }
 
-// Charge et rafraîchit le datagrid principal
+// ----------------------------------------------------------------------------
+// 2. SCHEDULER GLOBAL: VUE BROADCAST SUR TOUS LES SPOTS
+// ----------------------------------------------------------------------------
+function initSchedulerGlobalSpots(spots) {
+    const container = $("#scheduler-global-spots");
+    if (!container.length) return;
+
+    const appointments = (spots || []).map(mapSpotToSchedulerAppointment);
+    const initialDate = appointments.length > 0
+        ? new Date(appointments[0].startDate)
+        : new Date();
+
+    if (container.data("dxScheduler")) {
+        const inst = container.dxScheduler("instance");
+        inst.option("dataSource", appointments);
+        inst.repaint();
+        return;
+    }
+
+    container.dxScheduler({
+        dataSource: appointments,
+        views: SPOT_SCHEDULER_VIEWS,
+        currentView: "timelineDay",
+        currentDate: initialDate,
+        startDayHour: 0,
+        endDayHour: 24,
+        cellDuration: 15,
+        height: "100%",
+        showCurrentTimeIndicator: true,
+        showAllDayPanel: false,
+        editing: {
+            allowAdding: false,
+            allowDeleting: true,
+            allowUpdating: false,
+            allowResizing: false,
+            allowDragging: false
+        },
+        appointmentTemplate: renderSpotAppointmentTemplate,
+        appointmentTooltipTemplate: renderSpotTooltipTemplate,
+        onAppointmentDeleting: function (e) {
+            e.cancel = true;
+            supprimerSpotPlanifie(e.appointmentData.id);
+        }
+    });
+}
+
+function initGlobalSpotsViewSwitchers() {
+    $("#btn-view-spots-grid").on("click", function () {
+        currentGlobalSpotsView = "grid";
+        $(this).addClass("active");
+        $("#btn-view-spots-calendar").removeClass("active");
+        $("#wrapper-planification-spots-grid").show();
+        $("#wrapper-planification-spots-calendar").hide();
+    });
+
+    $("#btn-view-spots-calendar").on("click", function () {
+        currentGlobalSpotsView = "calendar";
+        $(this).addClass("active");
+        $("#btn-view-spots-grid").removeClass("active");
+        $("#wrapper-planification-spots-grid").hide();
+        $("#wrapper-planification-spots-calendar").show();
+
+        initSchedulerGlobalSpots(planificationSpotsData);
+        const sc = $("#scheduler-global-spots");
+        if (sc.data("dxScheduler")) {
+            sc.dxScheduler("instance").repaint();
+        }
+    });
+}
+
+// Charge et rafraîchit le datagrid et le calendrier global
 function chargerPlanificationSpots() {
     makeRequest('/api/PlanificationSpots', 'GET')
         .then(data => {
@@ -169,6 +435,11 @@ function chargerPlanificationSpots() {
                 grid.dxDataGrid("instance").option("dataSource", planificationSpotsData);
                 grid.dxDataGrid("instance").refresh();
             }
+
+            if ($("#scheduler-global-spots").is(":visible") || $("#scheduler-global-spots").data("dxScheduler")) {
+                initSchedulerGlobalSpots(planificationSpotsData);
+            }
+
             mettreAJourKpiSpots(planificationSpotsData);
         })
         .catch(err => {
@@ -189,7 +460,7 @@ function mettreAJourKpiSpots(data) {
 }
 
 // ----------------------------------------------------------------------------
-// POPUP DE PLANIFICATION DES SPOTS POUR UN BON DE COMMANDE
+// 3. POPUP DE PLANIFICATION DES SPOTS POUR UN BON DE COMMANDE
 // ----------------------------------------------------------------------------
 function ouvrirPopupPlanificationCommande(commandeId) {
     if (!commandeId) return;
@@ -219,17 +490,17 @@ function afficherModalPlanificationCommande(commande, spots) {
         ? `Du ${commande.dateDebutDiffusion ? new Date(commande.dateDebutDiffusion).toLocaleDateString('fr-FR') : '...'} au ${commande.dateFinDiffusion ? new Date(commande.dateFinDiffusion).toLocaleDateString('fr-FR') : '...'}`
         : "Aucune restriction (Toutes dates autorisées)";
 
-    const totalSpotsDemandés          = (commande.lignes || []).reduce((sum, l) => sum + (parseFloat(l.quantite) || 0), 0);
+    const totalSpotsDemandes            = (commande.lignes || []).reduce((sum, l) => sum + (parseFloat(l.quantite) || 0), 0);
     const totalSpotsPlanifiesOuDiffuses = spots.filter(s => s.statut !== STATUTS_SPOT.ANNULE).length;
-    const restants = Math.max(0, totalSpotsDemandés - totalSpotsPlanifiesOuDiffuses);
+    const restants = Math.max(0, totalSpotsDemandes - totalSpotsPlanifiesOuDiffuses);
 
     const popupTitle = `Planification des Spots — Bon de Commande N° ${commande.numeroCommande || ('CMD-' + commande.id_Commande)}`;
 
     popupContainer.dxPopup({
         title: popupTitle,
-        width: "92vw",
-        maxWidth: 1150,
-        height: "90vh",
+        width: "94vw",
+        maxWidth: 1200,
+        height: "92vh",
         visible: true,
         dragEnabled: true,
         showCloseButton: true,
@@ -237,7 +508,7 @@ function afficherModalPlanificationCommande(commande, spots) {
             container.empty();
 
             const content = $(`
-                <div class="popup-planification-content" style="display:flex; flex-direction:column; gap:14px; height:100%; overflow:hidden;">
+                <div class="popup-planification-content" style="display:flex; flex-direction:column; gap:12px; height:100%; overflow:hidden;">
 
                     <!-- Entête info commande -->
                     <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 16px; display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
@@ -251,7 +522,7 @@ function afficherModalPlanificationCommande(commande, spots) {
                         </div>
                         <div style="text-align:right;">
                             <div class="badge ${restants > 0 ? 'badge-warning' : 'badge-success'}" style="font-size:13px; padding:6px 12px;">
-                                <i class="fa-solid fa-bullhorn"></i> Planifiés : ${totalSpotsPlanifiesOuDiffuses} / ${totalSpotsDemandés}
+                                <i class="fa-solid fa-bullhorn"></i> Planifiés : ${totalSpotsPlanifiesOuDiffuses} / ${totalSpotsDemandes}
                                 ${restants > 0 ? `<span style="margin-left:8px; opacity:.85;">(${restants} restants)</span>` : ''}
                             </div>
                         </div>
@@ -264,14 +535,12 @@ function afficherModalPlanificationCommande(commande, spots) {
                         </h4>
                         <div style="display:flex; gap:8px; align-items:center;">
                             <!-- Switch vue: Grille / Calendrier -->
-                            <div id="btn-grp-view" style="display:flex; border:1px solid #cbd5e1; border-radius:6px; overflow:hidden;">
-                                <button id="btn-view-grid" class="view-toggle-btn active"
-                                        style="padding:5px 12px; border:none; background:#3b82f6; color:#fff; font-size:12px; cursor:pointer;">
+                            <div class="btn-group-toggle" id="btn-grp-modal-view">
+                                <button id="btn-view-grid" class="btn btn-sm active">
                                     <i class="fa-solid fa-table-list"></i> Grille
                                 </button>
-                                <button id="btn-view-calendar" class="view-toggle-btn"
-                                        style="padding:5px 12px; border:none; background:#f1f5f9; color:#475569; font-size:12px; cursor:pointer;">
-                                    <i class="fa-regular fa-calendar"></i> Calendrier
+                                <button id="btn-view-calendar" class="btn btn-sm">
+                                    <i class="fa-solid fa-calendar-days"></i> Calendrier
                                 </button>
                             </div>
                             <button class="btn btn-primary btn-sm" id="btn-ajouter-spot-commande">
@@ -317,16 +586,16 @@ function afficherModalPlanificationCommande(commande, spots) {
             // --- Basculer les vues ---
             $("#btn-view-grid").on("click", function () {
                 currentViewMode = "grid";
-                $(this).css({ background: "#3b82f6", color: "#fff" });
-                $("#btn-view-calendar").css({ background: "#f1f5f9", color: "#475569" });
+                $(this).addClass("active");
+                $("#btn-view-calendar").removeClass("active");
                 $("#pane-view-grid").show();
                 $("#pane-view-calendar").hide();
             });
 
             $("#btn-view-calendar").on("click", function () {
                 currentViewMode = "calendar";
-                $(this).css({ background: "#3b82f6", color: "#fff" });
-                $("#btn-view-grid").css({ background: "#f1f5f9", color: "#475569" });
+                $(this).addClass("active");
+                $("#btn-view-grid").removeClass("active");
                 $("#pane-view-grid").hide();
                 $("#pane-view-calendar").show();
                 // Repaint scheduler after show
@@ -355,7 +624,7 @@ function afficherModalPlanificationCommande(commande, spots) {
 }
 
 // ----------------------------------------------------------------------------
-// VUE GRILLE DES SPOTS DE LA COMMANDE
+// 4. VUE GRILLE DES SPOTS DE LA COMMANDE
 // ----------------------------------------------------------------------------
 function initGridCommandeSpots(spots, commande) {
     $("#grid-commande-spots").dxDataGrid({
@@ -370,22 +639,28 @@ function initGridCommandeSpots(spots, commande) {
             {
                 dataField: "designationProduit",
                 caption: "Spot",
-                cellTemplate: (c, o) => $("<strong>").text(o.value).appendTo(c)
+                cellTemplate: (c, o) => $("<strong>").text(o.value || 'Spot').appendTo(c)
             },
             {
                 dataField: "dateHeureDiffusion",
                 caption: "Date & Heure",
                 dataType: "datetime",
-                format: "dd/MM/yyyy HH:mm",
+                format: "dd/MM/yyyy HH:mm:ss",
                 sortOrder: "asc",
-                width: 160
+                width: 170,
+                cellTemplate: function (container, options) {
+                    const d = new Date(options.value);
+                    $("<div>")
+                        .html(`<i class="fa-regular fa-calendar" style="color:#3b82f6;"></i> ${d.toLocaleDateString('fr-FR')} &nbsp;<strong>${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</strong>`)
+                        .appendTo(container);
+                }
             },
             {
                 dataField: "dureeSecondes",
                 caption: "Durée",
-                width: 75,
+                width: 85,
                 alignment: "center",
-                cellTemplate: (c, o) => $("<span>").text(`${o.value} s`).appendTo(c)
+                cellTemplate: (c, o) => $("<span>").addClass("spot-duration-pill").html(`<i class="fa-solid fa-stopwatch"></i> ${o.value}s`).appendTo(c)
             },
             {
                 dataField: "statut",
@@ -421,7 +696,7 @@ function initGridCommandeSpots(spots, commande) {
             },
             {
                 caption: "Action",
-                width: 100,
+                width: 90,
                 alignment: "center",
                 cellTemplate: function (container, options) {
                     $("<button class='btn btn-xs btn-outline-danger' title='Supprimer'>")
@@ -435,74 +710,49 @@ function initGridCommandeSpots(spots, commande) {
 }
 
 // ----------------------------------------------------------------------------
-// VUE CALENDRIER (dxScheduler)
+// 5. VUE CALENDRIER DE LA COMMANDE (dxScheduler)
 // ----------------------------------------------------------------------------
 function initSchedulerCommandeSpots(spots, commande) {
-    // Map spots to DevExtreme Scheduler appointments
-    const appointments = spots.map(s => {
-        const start = new Date(s.dateHeureDiffusion);
-        const end   = new Date(start.getTime() + s.dureeSecondes * 1000);
-        const color = (STATUT_COLORS[s.statut] || STATUT_COLORS[STATUTS_SPOT.PLANIFIE]).hex;
-        return {
-            id:          s.id_PlanificationSpot,
-            text:        `${s.designationProduit} [${s.statut}]`,
-            startDate:   start,
-            endDate:     end,
-            color:       color,
-            spotData:    s
-        };
-    });
+    const container = $("#scheduler-commande-spots");
+    if (!container.length) return;
 
-    // Compute scheduler initial date
+    const appointments = (spots || []).map(mapSpotToSchedulerAppointment);
+
     const initialDate = spots.length > 0
         ? new Date(spots.reduce((a, b) => new Date(a.dateHeureDiffusion) < new Date(b.dateHeureDiffusion) ? a : b).dateHeureDiffusion)
-        : new Date();
+        : (commande.dateDebutDiffusion ? new Date(commande.dateDebutDiffusion) : new Date());
 
-    $("#scheduler-commande-spots").dxScheduler({
+    if (container.data("dxScheduler")) {
+        const inst = container.dxScheduler("instance");
+        inst.option("dataSource", appointments);
+        inst.option("currentDate", initialDate);
+        inst.repaint();
+        return;
+    }
+
+    container.dxScheduler({
         dataSource: appointments,
-        views: ["timelineDay", "timelineWeek", "week", "month"],
+        views: SPOT_SCHEDULER_VIEWS,
         currentView: "timelineDay",
         currentDate: initialDate,
         startDayHour: 0,
         endDayHour: 24,
-        cellDuration: 30,
+        cellDuration: 15,
         height: "100%",
+        showCurrentTimeIndicator: true,
+        showAllDayPanel: false,
         editing: {
             allowAdding: false,   // additions done via form
             allowDeleting: true,
-            allowUpdating: false, // updates done via grid buttons
+            allowUpdating: false, // updates done via quick status buttons
             allowResizing: false,
             allowDragging: false
         },
-        appointmentTemplate: function (model, index, element) {
-            const s = model.appointmentData.spotData;
-            const color = (STATUT_COLORS[s.statut] || STATUT_COLORS[STATUTS_SPOT.PLANIFIE]).hex;
-            element.css({
-                background: color,
-                color: "#fff",
-                borderRadius: "4px",
-                padding: "2px 6px",
-                fontSize: "11px",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap"
-            });
-            element.html(`<i class="fa-solid fa-broadcast-tower"></i> <strong>${s.designationProduit}</strong><br>
-                          <small>${s.dureeSecondes}s — ${s.statut}</small>`);
-        },
+        appointmentTemplate: renderSpotAppointmentTemplate,
+        appointmentTooltipTemplate: renderSpotTooltipTemplate,
         onAppointmentDeleting: function (e) {
             e.cancel = true; // intercept default delete
             supprimerSpotPlanifie(e.appointmentData.id);
-        },
-        onAppointmentClick: function (e) {
-            e.cancel = true;
-            const s = e.appointmentData.spotData;
-            // Show a small action balloon
-            DevExpress.ui.notify(
-                `${s.designationProduit} — ${s.statut} (${s.dureeSecondes}s)`,
-                "info",
-                2500
-            );
         },
         onCellClick: function (e) {
             // Clicking an empty cell opens the add form pre-filled with that time
@@ -535,7 +785,7 @@ function obtenirPlageInfoPourLigne(l) {
 }
 
 // ----------------------------------------------------------------------------
-// INITIALISATION DU FORMULAIRE DE CRÉATION DE SPOT
+// 6. INITIALISATION DU FORMULAIRE DE CRÉATION DE SPOT
 // ----------------------------------------------------------------------------
 function initFormNouveauSpot(commande, prefilledDate) {
     const produitsOptions = (commande.lignes || []).map(l => {
@@ -620,7 +870,7 @@ function initFormNouveauSpot(commande, prefilledDate) {
                 editorType: "dxDateBox",
                 editorOptions: {
                     type: "datetime",
-                    displayFormat: "dd/MM/yyyy HH:mm",
+                    displayFormat: "dd/MM/yyyy HH:mm:ss",
                     value: defaultDate
                 },
                 validationRules: [{ type: "required", message: "Date/heure requise." }]
@@ -646,7 +896,7 @@ function initFormNouveauSpot(commande, prefilledDate) {
 }
 
 // ----------------------------------------------------------------------------
-// ENREGISTREMENT D'UN SPOT DEPUIS LE FORMULAIRE
+// 7. ENREGISTREMENT D'UN SPOT DEPUIS LE FORMULAIRE
 // ----------------------------------------------------------------------------
 function enregistrerNouveauSpotCommande(commandeId) {
     const formEl = $("#dx-form-nouveau-spot");
@@ -663,8 +913,8 @@ function enregistrerNouveauSpotCommande(commandeId) {
         id_CommandeLigne:   formData.id_CommandeLigne,
         id_Produit:         formData.id_Produit,
         dateHeureDiffusion: formatLocalISO(formData.dateHeureDiffusion),
-        statut:           formData.statut || STATUTS_SPOT.PLANIFIE,
-        remarques:        formData.remarques || ""
+        statut:             formData.statut || STATUTS_SPOT.PLANIFIE,
+        remarques:          formData.remarques || ""
     };
 
     makeRequest('/api/PlanificationSpots', 'POST', payload)
@@ -683,7 +933,7 @@ function enregistrerNouveauSpotCommande(commandeId) {
 }
 
 // ----------------------------------------------------------------------------
-// MODIFICATION RAPIDE DU STATUT
+// 8. MODIFICATION RAPIDE DU STATUT
 // ----------------------------------------------------------------------------
 function majStatutSpotQuick(spotId, nouveauStatut) {
     makeRequest(`/api/PlanificationSpots/${spotId}/statut`, 'PUT', { statut: nouveauStatut })
@@ -703,7 +953,7 @@ function majStatutSpotQuick(spotId, nouveauStatut) {
 }
 
 // ----------------------------------------------------------------------------
-// SUPPRESSION D'UN SPOT
+// 9. SUPPRESSION D'UN SPOT
 // ----------------------------------------------------------------------------
 function supprimerSpotPlanifie(spotId) {
     DevExpress.ui.dialog.confirm(

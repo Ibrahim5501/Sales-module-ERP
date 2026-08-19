@@ -317,7 +317,7 @@ namespace example2.Controllers
 
         // POST: api/Devis/5/accepter
         [HttpPost("{id}/accepter")]
-        public async Task<ActionResult<CommandeDto>> Accepter(int id)
+        public async Task<ActionResult<object>> Accepter(int id)
         {
             var devis = await _context.Devis
                 .Include(d => d.Lignes)
@@ -333,6 +333,7 @@ namespace example2.Controllers
 
             devis.Statut = DevisStatut.Accepte;
 
+            // --- Create Commande ---
             var commande = new Commande
             {
                 NumeroCommande = "",
@@ -361,46 +362,104 @@ namespace example2.Controllers
             };
 
             _context.Commandes.Add(commande);
+
+            // --- Create Facture linked to Devis ---
+            var facture = new Facture
+            {
+                NumeroFacture = string.Empty,
+                Id_Devis = devis.Id_Devis,
+                Id_Partenaire = devis.Id_Partenaire,
+                DateFacture = DateTime.Now,
+                DateEcheance = DateTime.Now.AddDays(30),
+                MontantHT = devis.MontantHT,
+                MontantTVA = devis.MontantTVA,
+                MontantTotal = devis.MontantTTC,
+                MontantPaye = 0,
+                Statut = FactureStatut.NonPayee
+            };
+
+            _context.Factures.Add(facture);
             await _context.SaveChangesAsync();
 
             commande.NumeroCommande = $"CMD-2026-{commande.Id_Commande:D3}";
+            facture.NumeroFacture = $"FAC-{DateTime.Now.Year}-{facture.Id_Facture:D3}";
             await _context.SaveChangesAsync();
 
             var client = devis.Partenaire ?? await _context.Partenaires.FirstOrDefaultAsync(p => p.Id_Partenaire == commande.Id_Partenaire);
 
-            // Generate PDFs for Devis and Commande
+            // --- Generate PDFs ---
             _pdfService.SaveDevisPdf(devis, _env.WebRootPath);
             commande.Partenaire = client;
             commande.Devis = devis;
             _pdfService.SaveCommandePdf(commande, _env.WebRootPath);
+            facture.Devis = devis;
+            facture.Partenaire = client;
+            string facturePdfUrl = _pdfService.SaveFacturePdf(facture, _env.WebRootPath);
 
-            return Ok(new CommandeDto
+            return Ok(new
             {
-                Id_Commande = commande.Id_Commande,
-                Id_Partenaire = commande.Id_Partenaire,
-                NomPartenaire = client != null ? $"{client.Nom} ({client.Entreprise})" : $"Partenaire #{commande.Id_Partenaire}",
-                Id_Devis = commande.Id_Devis,
-                NumeroDevis = devis.NumeroDevis,
-                NumeroCommande = commande.NumeroCommande,
-                DateCommande = commande.DateCommande,
-                DateDebutDiffusion = commande.DateDebutDiffusion,
-                DateFinDiffusion = commande.DateFinDiffusion,
-                MontantHT = commande.MontantHT,
-                MontantTTC = commande.MontantTTC,
-                Statut = commande.Statut,
-                Lignes = commande.Lignes.Select(l => new CommandeLigneDto
+                commande = new CommandeDto
                 {
-                    Id_CommandeLigne = l.Id_CommandeLigne,
-                    Description = l.Description,
-                    Quantite = l.Quantite,
-                    DureeSecondes = l.DureeSecondes,
-                    PrixUniversitaire = l.PrixUniversitaire,
-                    TauxTVA = l.TauxTVA,
-                    Remise = l.Remise,
-                    MontantHT = l.MontantHT,
-                    MontantTTC = l.MontantTTC,
-                    Id_Produit = l.Id_Produit
-                }).ToList()
+                    Id_Commande = commande.Id_Commande,
+                    Id_Partenaire = commande.Id_Partenaire,
+                    NomPartenaire = client != null ? $"{client.Nom} ({client.Entreprise})" : $"Partenaire #{commande.Id_Partenaire}",
+                    Id_Devis = commande.Id_Devis,
+                    NumeroDevis = devis.NumeroDevis,
+                    NumeroCommande = commande.NumeroCommande,
+                    DateCommande = commande.DateCommande,
+                    DateDebutDiffusion = commande.DateDebutDiffusion,
+                    DateFinDiffusion = commande.DateFinDiffusion,
+                    MontantHT = commande.MontantHT,
+                    MontantTTC = commande.MontantTTC,
+                    Statut = commande.Statut,
+                    Lignes = commande.Lignes.Select(l => new CommandeLigneDto
+                    {
+                        Id_CommandeLigne = l.Id_CommandeLigne,
+                        Description = l.Description,
+                        Quantite = l.Quantite,
+                        DureeSecondes = l.DureeSecondes,
+                        PrixUniversitaire = l.PrixUniversitaire,
+                        TauxTVA = l.TauxTVA,
+                        Remise = l.Remise,
+                        MontantHT = l.MontantHT,
+                        MontantTTC = l.MontantTTC,
+                        Id_Produit = l.Id_Produit
+                    }).ToList()
+                },
+                facture = new FactureDto
+                {
+                    Id_Facture = facture.Id_Facture,
+                    NumeroFacture = facture.NumeroFacture,
+                    Id_Devis = facture.Id_Devis,
+                    NumeroDevis = devis.NumeroDevis,
+                    Id_Partenaire = facture.Id_Partenaire,
+                    NomPartenaire = client != null ? $"{client.Nom} ({client.Entreprise})" : $"Partenaire #{facture.Id_Partenaire}",
+                    DateFacture = facture.DateFacture,
+                    DateEcheance = facture.DateEcheance,
+                    MontantHT = facture.MontantHT,
+                    MontantTVA = facture.MontantTVA,
+                    MontantTotal = facture.MontantTotal,
+                    MontantPaye = facture.MontantPaye,
+                    MontantRestant = facture.MontantRestant,
+                    Statut = facture.Statut,
+                    Lignes = devis.Lignes.Select(l => new DevisLigneDto
+                    {
+                        Id_DevisLigne = l.Id_DevisLigne,
+                        Description = l.Description,
+                        Quantite = l.Quantite,
+                        DureeSecondes = l.DureeSecondes,
+                        PrixUniversitaire = l.PrixUniversitaire,
+                        TauxTVA = l.TauxTVA,
+                        Remise = l.Remise,
+                        TypeRemise = l.TypeRemise,
+                        MontantHT = l.MontantHT,
+                        MontantTTC = l.MontantTTC,
+                        Id_Produit = l.Id_Produit,
+                        Designation = l.Produit?.Designation ?? "Produit",
+                        Emission = l.Emission
+                    }).ToList()
+                },
+                facturePdfUrl = facturePdfUrl
             });
         }
 

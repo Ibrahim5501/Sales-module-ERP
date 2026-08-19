@@ -287,21 +287,21 @@ namespace example2.Services
             cmd.Statut = CommandeStatut.Facutree;
 
             var client = _context.Partenaires.FirstOrDefault(p => p.Id_Partenaire == cmd.Id_Partenaire);
-            string nomClient = client != null ? $"{client.Nom} ({client.Entreprise})" : $"Partenaire #{cmd.Id_Partenaire}";
 
             var fact = new Facture
             {
-                Id_Commande = cmd.Id_Commande,
+                Id_Devis = cmd.Id_Devis,
                 Id_Partenaire = cmd.Id_Partenaire,
                 DateFacture = DateTime.Now,
                 DateEcheance = DateTime.Now.AddDays(30),
                 MontantTotal = cmd.MontantTTC,
+                MontantHT = cmd.MontantHT,
+                MontantTVA = cmd.MontantTVA,
                 MontantPaye = 0,
                 Statut = FactureStatut.NonPayee,
             };
 
             int next = (_context.Factures.Max(d => (int?)d.Id_Facture) ?? 0) + 1;
-
             fact.NumeroFacture = $"FAC-{DateTime.Now.Year}-{next:D3}";
 
             _context.Factures.Add(fact);
@@ -330,24 +330,7 @@ namespace example2.Services
             decimal paiementEfficace = Math.Min(montant, restant);
 
             fact.MontantPaye += paiementEfficace;
-
-            if (fact.MontantRestant == 0)
-            {
-                fact.Statut = FactureStatut.Payee;
-
-                if (fact.Id_Commande > 0)
-                {
-                    var cmd = _context.Commandes.FirstOrDefault(c => c.Id_Commande == fact.Id_Commande);
-                    if (cmd != null)
-                    {
-                        cmd.Statut = CommandeStatut.Cloturee;
-                    }
-                }
-            }
-            else
-            {
-                fact.Statut = FactureStatut.NonPayee;
-            }
+            fact.Statut = fact.MontantRestant == 0 ? FactureStatut.Payee : FactureStatut.NonPayee;
 
             _context.SaveChanges();
             return fact;

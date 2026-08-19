@@ -37,55 +37,55 @@ async function chargerDashboard() {
         const res = await fetch('/api/tableaubord');
         const data = await res.json();
         
-        // Mettre à jour les KPI
-        $("#kpi-ca").text(formatCurrency(data.indicateurs.chiffreAffairesTotal));
-        $("#kpi-commandes").text(data.indicateurs.nombreCommandes);
-        $("#kpi-impayes").text(formatCurrency(data.indicateurs.montantImpaye));
-        $("#kpi-taux-recouvrement").text(`Recouvrement : ${data.indicateurs.tauxRecouvrement}%`);
+        //// Mettre à jour les KPI
+        //$("#kpi-ca").text(formatCurrency(data.indicateurs.chiffreAffairesTotal));
+        //$("#kpi-commandes").text(data.indicateurs.nombreCommandes);
+        //$("#kpi-impayes").text(formatCurrency(data.indicateurs.montantImpaye));
+        //$("#kpi-taux-recouvrement").text(`Recouvrement : ${data.indicateurs.tauxRecouvrement}%`);
         
-        // Alertes spots / diffusion
-        $("#stock-alert-badge").text(0);
-        $("#stock-alert-count").text(`Spots en diffusion`);
+        //// Alertes spots / diffusion
+        //$("#stock-alert-badge").text(0);
+        //$("#stock-alert-count").text(`Spots en diffusion`);
 
-        // Rendre les graphiques DevExtreme
-        renderDashboardCharts(data);
+        //// Rendre les graphiques DevExtreme
+        //renderDashboardCharts(data);
 
-        // Top Clients (Mini dxDataGrid)
-        $("#grid-top-clients").dxDataGrid({
-            dataSource: data.topClients,
-            columns: [
-                {
-                    dataField: "nomClient",
-                    caption: "Client",
-                    cellTemplate: (container, options) => {
-                        $("<strong>").text(options.value).appendTo(container);
-                    }
-                },
-                {
-                    dataField: "entreprise",
-                    caption: "Entreprise"
-                },
-                {
-                    dataField: "totalAchats",
-                    caption: "Total Commandé",
-                    alignment: "right",
-                    calculateCellValue: (row) => formatCurrency(row.totalAchats)
-                },
-                {
-                    dataField: "nombreCommandes",
-                    caption: "Commandes",
-                    alignment: "center"
-                }
-            ],
-            showBorders: false,
-            showColumnHeaders: true,
-            paging: { enabled: false },
-            scrolling: { mode: "none" }
-        });
+        //// Top Clients (Mini dxDataGrid)
+        //$("#grid-top-clients").dxDataGrid({
+        //    dataSource: data.topClients,
+        //    columns: [
+        //        {
+        //            dataField: "nomClient",
+        //            caption: "Client",
+        //            cellTemplate: (container, options) => {
+        //                $("<strong>").text(options.value).appendTo(container);
+        //            }
+        //        },
+        //        {
+        //            dataField: "entreprise",
+        //            caption: "Entreprise"
+        //        },
+        //        {
+        //            dataField: "totalAchats",
+        //            caption: "Total Commandé",
+        //            alignment: "right",
+        //            calculateCellValue: (row) => formatCurrency(row.totalAchats)
+        //        },
+        //        {
+        //            dataField: "nombreCommandes",
+        //            caption: "Commandes",
+        //            alignment: "center"
+        //        }
+        //    ],
+        //    showBorders: false,
+        //    showColumnHeaders: true,
+        //    paging: { enabled: false },
+        //    scrolling: { mode: "none" }
+        //});
 
-        const alertsContainer = $("#dashboard-stock-alerts");
-        alertsContainer.empty();
-        alertsContainer.html(`<div class="text-center text-muted" style="padding:24px;"><i class="fa-solid fa-signal text-success" style="margin-right:6px;"></i> Tous les spots publicitaires et grilles d'antenne sont actifs.</div>`);
+        //const alertsContainer = $("#dashboard-stock-alerts");
+        //alertsContainer.empty();
+        //alertsContainer.html(`<div class="text-center text-muted" style="padding:24px;"><i class="fa-solid fa-signal text-success" style="margin-right:6px;"></i> Tous les spots publicitaires et grilles d'antenne sont actifs.</div>`);
 
         // Charger les données analytiques
         await chargerAnalytics();

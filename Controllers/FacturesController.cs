@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using example2.Data;
 using example2.Models;
 using example2.DTOs;
+using example2.Services;
+using Microsoft.AspNetCore.Hosting;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -17,10 +19,14 @@ namespace example2.Controllers
     public class FacturesController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly IPdfService _pdfService;
+        private readonly IWebHostEnvironment _env;
 
-        public FacturesController(ApplicationDbContext context)
+        public FacturesController(ApplicationDbContext context, IPdfService pdfService, IWebHostEnvironment env)
         {
             _context = context;
+            _pdfService = pdfService;
+            _env = env;
         }
 
         [HttpGet]
@@ -28,7 +34,9 @@ namespace example2.Controllers
         {
             var factures = await _context.Factures
                 .Include(f => f.Partenaire)
-                .Include(f => f.Commande)
+                .Include(f => f.Devis)
+                    .ThenInclude(d => d.Lignes)
+                        .ThenInclude(l => l.Produit)
                 .OrderByDescending(f => f.DateFacture)
                 .ToListAsync();
             return Ok(factures.Select(MapToDto));
@@ -39,10 +47,30 @@ namespace example2.Controllers
         {
             var fact = await _context.Factures
                 .Include(f => f.Partenaire)
-                .Include(f => f.Commande)
+                .Include(f => f.Devis)
+                    .ThenInclude(d => d.Lignes)
+                        .ThenInclude(l => l.Produit)
                 .FirstOrDefaultAsync(f => f.Id_Facture == id);
             if (fact == null) return NotFound(new { message = "Facture non trouvée." });
             return Ok(MapToDto(fact));
+        }
+
+        [HttpGet("{id}/pdf")]
+        [AllowAnonymous]
+        public async Task<ActionResult> GetPdf(int id)
+        {
+            var fact = await _context.Factures
+                .Include(f => f.Partenaire)
+                .Include(f => f.Devis)
+                    .ThenInclude(d => d.Lignes)
+                        .ThenInclude(l => l.Produit)
+                .FirstOrDefaultAsync(f => f.Id_Facture == id);
+
+            if (fact == null) return NotFound(new { message = "Facture non trouvée." });
+
+            byte[] pdfBytes = _pdfService.GenerateFacturePdf(fact);
+            var fileName = $"Facture_{fact.NumeroFacture ?? fact.Id_Facture.ToString()}.pdf";
+            return File(pdfBytes, "application/pdf", fileName);
         }
 
         [HttpPost("{id}/annuler")]
@@ -50,7 +78,7 @@ namespace example2.Controllers
         {
             var fact = await _context.Factures
                 .Include(f => f.Partenaire)
-                .Include(f => f.Commande)
+                .Include(f => f.Devis)
                 .FirstOrDefaultAsync(f => f.Id_Facture == id);
             if (fact == null || fact.Statut == FactureStatut.Annulee)
                 return BadRequest(new { message = "Annulation impossible. La facture n'existe pas ou est déjà annulée." });
@@ -67,7 +95,9 @@ namespace example2.Controllers
 
             var fact = await _context.Factures
                 .Include(f => f.Partenaire)
-                .Include(f => f.Commande)
+                .Include(f => f.Devis)
+                    .ThenInclude(d => d.Lignes)
+                        .ThenInclude(l => l.Produit)
                 .FirstOrDefaultAsync(f => f.Id_Facture == id);
             if (fact == null || fact.Statut == FactureStatut.Payee || fact.Statut == FactureStatut.Annulee)
                 return BadRequest(new { message = "Règlement impossible. La facture n'existe pas ou est déjà payée/annulée." });
@@ -76,24 +106,7 @@ namespace example2.Controllers
             decimal paiementEfficace = Math.Min(request.Montant, restant);
 
             fact.MontantPaye += paiementEfficace;
-
-            if (fact.MontantRestant == 0)
-            {
-                fact.Statut = FactureStatut.Payee;
-
-                if (fact.Id_Commande > 0)
-                {
-                    var cmd = await _context.Commandes.FirstOrDefaultAsync(c => c.Id_Commande == fact.Id_Commande);
-                    if (cmd != null)
-                    {
-                        cmd.Statut = CommandeStatut.Cloturee;
-                    }
-                }
-            }
-            else
-            {
-                fact.Statut = FactureStatut.NonPayee;
-            }
+            fact.Statut = fact.MontantRestant == 0 ? FactureStatut.Payee : FactureStatut.NonPayee;
 
             await _context.SaveChangesAsync();
             return Ok(MapToDto(fact));
@@ -103,18 +116,38 @@ namespace example2.Controllers
         {
             return new FactureDto
             {
-                Id_Facture = f.Id_Facture,
+                Id_Facture    = f.Id_Facture,
                 NumeroFacture = f.NumeroFacture,
-                Id_Commande = f.Id_Commande,
-                NumeroCommande = f.Commande != null ? f.Commande.NumeroCommande : null,
+                Id_Devis      = f.Id_Devis,
+                NumeroDevis   = f.Devis?.NumeroDevis,
                 Id_Partenaire = f.Id_Partenaire,
-                NomPartenaire = f.Partenaire != null ? $"{f.Partenaire.Nom} ({f.Partenaire.Entreprise})" : $"Partenaire #{f.Id_Partenaire}",
-                DateFacture = f.DateFacture,
-                DateEcheance = f.DateEcheance,
-                MontantTotal = f.MontantTotal,
-                MontantPaye = f.MontantPaye,
+                NomPartenaire = f.Partenaire != null
+                    ? $"{f.Partenaire.Nom} ({f.Partenaire.Entreprise})"
+                    : $"Partenaire #{f.Id_Partenaire}",
+                DateFacture   = f.DateFacture,
+                DateEcheance  = f.DateEcheance,
+                MontantHT     = f.MontantHT,
+                MontantTVA    = f.MontantTVA,
+                MontantTotal  = f.MontantTotal,
+                MontantPaye   = f.MontantPaye,
                 MontantRestant = f.MontantRestant,
-                Statut = f.Statut
+                Statut        = f.Statut,
+                Lignes        = f.Devis?.Lignes?.Select(l => new DevisLigneDto
+                {
+                    Id_DevisLigne     = l.Id_DevisLigne,
+                    Description       = l.Description,
+                    Quantite          = l.Quantite,
+                    DureeSecondes     = l.DureeSecondes,
+                    PrixUniversitaire = l.PrixUniversitaire,
+                    TauxTVA           = l.TauxTVA,
+                    Remise            = l.Remise,
+                    TypeRemise        = l.TypeRemise,
+                    MontantHT         = l.MontantHT,
+                    MontantTTC        = l.MontantTTC,
+                    Id_Produit        = l.Id_Produit,
+                    Designation       = l.Produit?.Designation ?? "Produit",
+                    Emission          = l.Emission
+                }).ToList() ?? new List<DevisLigneDto>()
             };
         }
     }

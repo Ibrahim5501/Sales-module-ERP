@@ -53,8 +53,8 @@ async function chargerFactures() {
                     caption: "Client"
                 },
                 {
-                    dataField: "numeroCommande",
-                    caption: "N° Commande",
+                    dataField: "numeroDevis",
+                    caption: "N° Devis",
                     width: 140
                 },
                 {
@@ -100,20 +100,38 @@ async function chargerFactures() {
                 {
                     caption: "Actions",
                     alignment: "center",
-                    width: 140,
+                    width: 190,
                     cellTemplate: (container, options) => {
                         const f = options.data;
+                        if (!f) return;
+                        const factureId = f.id_Facture || f.id_facture || f.id;
                         const reste = f.montantRestant || (f.montantTotal - f.montantPaye);
+
+                        const $wrap = $("<div style='display:flex; gap:6px; justify-content:center; align-items:center;'>");
+
+                        // Bouton Télécharger / Ouvrir PDF
+                        $("<button>")
+                            .addClass("btn btn-secondary btn-small")
+                            .html("<i class='fa-solid fa-file-pdf' style='color:#e11d48;'></i> PDF")
+                            .attr("title", "Télécharger / Voir la Facture PDF")
+                            .on("click", (e) => {
+                                e.preventDefault();
+                                window.open(`/api/factures/${factureId}/pdf`, "_blank");
+                            })
+                            .appendTo($wrap);
+
                         if (f.statut !== 'Payee' && f.statut !== 'Annulee') {
-                            $("<button>").addClass("btn btn-secondary btn-small")
+                            $("<button>").addClass("btn btn-primary btn-small")
                                 .html("<i class='fa-solid fa-cash-register'></i> Régler")
-                                .on("click", () => ouvrirModalPaiement(f.id_Facture, f.numeroFacture, reste))
-                                .appendTo(container);
+                                .on("click", () => ouvrirModalPaiement(factureId, f.numeroFacture, reste))
+                                .appendTo($wrap);
                         } else {
-                            $("<span>").css({ color: "var(--text-muted)", fontSize: "12px" })
+                            $("<span>").css({ color: "var(--text-muted)", fontSize: "12px", marginLeft: "4px" })
                                 .html("<i class='fa-solid fa-circle-check' style='color:var(--success)'></i> Clôturée")
-                                .appendTo(container);
+                                .appendTo($wrap);
                         }
+
+                        $wrap.appendTo(container);
                     }
                 }
             ]

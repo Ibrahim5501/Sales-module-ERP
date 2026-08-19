@@ -9,13 +9,17 @@ namespace example2.Models
         [Key]
         public int Id_Facture { get; set; }
 
-        public string NumeroFacture { get; set; }
+        public string NumeroFacture { get; set; } = string.Empty;
 
         public DateTime DateFacture { get; set; } = DateTime.Now;
 
         public DateTime DateEcheance { get; set; } = DateTime.Now.AddDays(30);
 
-        public decimal MontantTotal { get; set; }
+        public decimal MontantHT { get; set; }
+
+        public decimal MontantTVA { get; set; }
+
+        public decimal MontantTotal { get; set; }  // = MontantTTC
 
         public decimal MontantPaye { get; set; }
 
@@ -23,10 +27,11 @@ namespace example2.Models
 
         public FactureStatut Statut { get; set; } = FactureStatut.NonPayee;
 
-        // Navigation
-        public int Id_Commande { get; set; }
+        // Navigation — linked to Devis (not Commande)
+        public int Id_Devis { get; set; }
 
-        public virtual Commande? Commande { get; set; }
+        [JsonIgnore]
+        public virtual Devis? Devis { get; set; }
 
         public int Id_Partenaire { get; set; }
 
