@@ -493,6 +493,7 @@ function afficherModalPlanificationCommande(commande, spots) {
     const totalSpotsDemandes            = (commande.lignes || []).reduce((sum, l) => sum + (parseFloat(l.quantite) || 0), 0);
     const totalSpotsPlanifiesOuDiffuses = spots.filter(s => s.statut !== STATUTS_SPOT.ANNULE).length;
     const restants = Math.max(0, totalSpotsDemandes - totalSpotsPlanifiesOuDiffuses);
+    const isAnnulee = (commande.statut === 'Annulee' || commande.statut === 3);
 
     const popupTitle = `Planification des Spots — Bon de Commande N° ${commande.numeroCommande || ('CMD-' + commande.id_Commande)}`;
 
@@ -521,10 +522,16 @@ function afficherModalPlanificationCommande(commande, spots) {
                             </div>
                         </div>
                         <div style="text-align:right;">
-                            <div class="badge ${restants > 0 ? 'badge-warning' : 'badge-success'}" style="font-size:13px; padding:6px 12px;">
-                                <i class="fa-solid fa-bullhorn"></i> Planifiés : ${totalSpotsPlanifiesOuDiffuses} / ${totalSpotsDemandes}
-                                ${restants > 0 ? `<span style="margin-left:8px; opacity:.85;">(${restants} restants)</span>` : ''}
-                            </div>
+                            ${isAnnulee ? `
+                                <div class="badge badge-danger" style="font-size:13px; padding:6px 12px;">
+                                    <i class="fa-solid fa-ban"></i> Commande Annulée
+                                </div>
+                            ` : `
+                                <div class="badge ${restants > 0 ? 'badge-warning' : 'badge-success'}" style="font-size:13px; padding:6px 12px;">
+                                    <i class="fa-solid fa-bullhorn"></i> Planifiés : ${totalSpotsPlanifiesOuDiffuses} / ${totalSpotsDemandes}
+                                    ${restants > 0 ? `<span style="margin-left:8px; opacity:.85;">(${restants} restants)</span>` : ''}
+                                </div>
+                            `}
                         </div>
                     </div>
 
@@ -604,7 +611,12 @@ function afficherModalPlanificationCommande(commande, spots) {
             });
 
             // --- Formulaire ---
-            if (restants === 0) {
+            if (isAnnulee) {
+                $("#btn-ajouter-spot-commande")
+                    .prop("disabled", true)
+                    .css({ opacity: 0.65, cursor: "not-allowed" })
+                    .html("<i class='fa-solid fa-ban'></i> Commande Annulée (Planification désactivée)");
+            } else if (restants === 0) {
                 $("#btn-ajouter-spot-commande")
                     .prop("disabled", true)
                     .css({ opacity: 0.65, cursor: "not-allowed" })
@@ -681,6 +693,7 @@ function initGridCommandeSpots(spots, commande) {
                 cellTemplate: function (container, options) {
                     const row  = options.data;
                     const wrap = $("<div style='display:flex; gap:3px; justify-content:center; flex-direction: column'>").appendTo(container);
+                    const isCmdAnnulee = (commande && (commande.statut === 'Annulee' || commande.statut === 3));
 
                     STATUT_LIST.forEach(s => {
                         const btnClass = s === STATUTS_SPOT.PLANIFIE ? "btn-outline-warning"
@@ -688,7 +701,7 @@ function initGridCommandeSpots(spots, commande) {
                                        : "btn-outline-danger";
                         $(`<button class='btn btn-xs ${btnClass}'>`)
                             .text(s)
-                            .prop("disabled", row.statut === s)
+                            .prop("disabled", row.statut === s || isCmdAnnulee)
                             .on("click", () => majStatutSpotQuick(row.id_PlanificationSpot, s))
                             .appendTo(wrap);
                     });
@@ -755,6 +768,7 @@ function initSchedulerCommandeSpots(spots, commande) {
             supprimerSpotPlanifie(e.appointmentData.id);
         },
         onCellClick: function (e) {
+            if (commande && (commande.statut === 'Annulee' || commande.statut === 3)) return;
             // Clicking an empty cell opens the add form pre-filled with that time
             const clickedDate = e.cellData && e.cellData.startDate;
             if (!clickedDate) return;
@@ -899,6 +913,11 @@ function initFormNouveauSpot(commande, prefilledDate) {
 // 7. ENREGISTREMENT D'UN SPOT DEPUIS LE FORMULAIRE
 // ----------------------------------------------------------------------------
 function enregistrerNouveauSpotCommande(commandeId) {
+    if (currentCommandePlanning && (currentCommandePlanning.statut === 'Annulee' || currentCommandePlanning.statut === 3)) {
+        showToast("Impossible de planifier des spots pour un bon de commande annulé.", true);
+        return;
+    }
+
     const formEl = $("#dx-form-nouveau-spot");
     if (!formEl.data("dxForm")) return;
 

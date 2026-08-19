@@ -83,6 +83,9 @@ namespace example2.Controllers
             if (commande == null)
                 return BadRequest(new { message = "Bon de commande non trouvé." });
 
+            if (commande.Statut == CommandeStatut.Annulee)
+                return BadRequest(new { message = "Impossible de planifier des spots pour un bon de commande annulé." });
+
             // 0. Restriction par l'intervalle de dates du Devis / Commande (Campagne)
             DateTime? dateDebut = commande.DateDebutDiffusion ?? commande.Devis?.DateDebutDiffusion;
             DateTime? dateFin   = commande.DateFinDiffusion   ?? commande.Devis?.DateFinDiffusion;
@@ -217,6 +220,9 @@ namespace example2.Controllers
             if (existing == null)
                 return NotFound(new { message = "Planification de spot non trouvée." });
 
+            if (existing.Commande?.Statut == CommandeStatut.Annulee)
+                return BadRequest(new { message = "Impossible de modifier la planification d'un spot associé à une commande annulée." });
+
             // 0. Restriction par l'intervalle de dates du Devis / Commande (Campagne)
             DateTime? dateDebut = existing.Commande?.DateDebutDiffusion ?? existing.Commande?.Devis?.DateDebutDiffusion;
             DateTime? dateFin   = existing.Commande?.DateFinDiffusion   ?? existing.Commande?.Devis?.DateFinDiffusion;
@@ -290,6 +296,9 @@ namespace example2.Controllers
 
             if (existing == null)
                 return NotFound(new { message = "Planification de spot non trouvée." });
+
+            if (existing.Commande?.Statut == CommandeStatut.Annulee)
+                return BadRequest(new { message = "Impossible de modifier le statut d'un spot lié à une commande annulée." });
 
             // Re-activating a previously cancelled spot — check for overlaps
             if (dto.Statut != StatutPlanificationSpot.Annule && existing.Statut == StatutPlanificationSpot.Annule)

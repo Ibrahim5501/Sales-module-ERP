@@ -194,6 +194,17 @@ namespace example2.Controllers
             // Les spots publicitaires ne possèdent pas de stock physique à réajuster
 
             cmd.Statut = CommandeStatut.Annulee;
+
+            // Passer automatiquement toutes les planifications de spots associées au statut Annulé
+            var spots = await _context.PlanificationSpots
+                .Where(ps => ps.Id_Commande == id && ps.StatutString != "Annulé")
+                .ToListAsync();
+
+            foreach (var spot in spots)
+            {
+                spot.Statut = StatutPlanificationSpot.Annule;
+            }
+
             await _context.SaveChangesAsync();
             return Ok(MapToDto(cmd));
         }

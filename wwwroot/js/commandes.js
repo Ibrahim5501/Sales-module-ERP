@@ -137,12 +137,14 @@ function renderCommandeActions(container, options) {
         .on("click", () => ouvrirDetailCommande(c.id_Commande))
         .appendTo($wrapper);
 
-    // Bouton Planifier Spots
-    $("<button>").addClass("action-btn-dx btn-invoice")
-        .html("<i class='fa-solid fa-calendar-days'></i> Planifier Spots")
-        .attr("title", "Planifier les spots publicitaires")
-        .on("click", () => ouvrirPopupPlanificationCommande(c.id_Commande))
-        .appendTo($wrapper);
+    // Bouton Planifier Spots (si non annulée)
+    if (c.statut !== 'Annulee') {
+        $("<button>").addClass("action-btn-dx btn-invoice")
+            .html("<i class='fa-solid fa-calendar-days'></i> Planifier Spots")
+            .attr("title", "Planifier les spots publicitaires")
+            .on("click", () => ouvrirPopupPlanificationCommande(c.id_Commande))
+            .appendTo($wrapper);
+    }
 
     // Bouton Télécharger PDF
     $("<button>")
@@ -348,16 +350,42 @@ async function ouvrirDetailCommande(id) {
                     </button>
                 </div>
             `;
-        } else {
+        } else if (c.statut === "Validee") {
             actionsHtml = `
                 <div style="display:flex; gap:10px; margin-top:16px; flex-wrap:wrap;">
-                    ${c.statut === "Validee" ? `
                     <button class="action-btn-dx btn-invoice"
                             onclick="facturerCommandeDepuisPopup(${c.id_Commande})">
                         <i class="fa-solid fa-file-invoice"></i> Générer Facture
                     </button>
-                    ` : ""}
 
+                    <button class="action-btn-dx btn-invoice"
+                            onclick="ouvrirPopupPlanificationCommande(${c.id_Commande})">
+                        <i class="fa-solid fa-calendar-days"></i> Planifier Spots
+                    </button>
+
+                    <button class="action-btn-dx btn-view"
+                            onclick="window.open('/api/commandes/${c.id_Commande}/pdf', '_blank')">
+                        <i class="fa-solid fa-file-pdf"></i> Télécharger PDF
+                    </button>
+
+                    <button class="action-btn-dx btn-cancel"
+                            onclick="annulerCommandeDepuisPopup(${c.id_Commande})">
+                        <i class="fa-solid fa-xmark"></i> Annuler
+                    </button>
+                </div>
+            `;
+        } else if (c.statut === "Annulee") {
+            actionsHtml = `
+                <div style="display:flex; gap:10px; margin-top:16px; flex-wrap:wrap;">
+                    <button class="action-btn-dx btn-view"
+                            onclick="window.open('/api/commandes/${c.id_Commande}/pdf', '_blank')">
+                        <i class="fa-solid fa-file-pdf"></i> Télécharger PDF
+                    </button>
+                </div>
+            `;
+        } else {
+            actionsHtml = `
+                <div style="display:flex; gap:10px; margin-top:16px; flex-wrap:wrap;">
                     <button class="action-btn-dx btn-invoice"
                             onclick="ouvrirPopupPlanificationCommande(${c.id_Commande})">
                         <i class="fa-solid fa-calendar-days"></i> Planifier Spots
