@@ -72,7 +72,7 @@ namespace example2.Services
                             <td style='padding: 8px; border-bottom: 1px solid #e2e8f0;'>{devis.DateDevis:dd/MM/yyyy}</td>
                         </tr>
                         <tr>
-                            <td style='padding: 8px; border-bottom: 1px solid #e2e8f0;'>Date de Validité</td>
+                            <td style='padding: 8px; border-bottom: 1px solid #e2e8f0;'>Date d'échéance</td>
                             <td style='padding: 8px; border-bottom: 1px solid #e2e8f0;'>{devis.DateValidite:dd/MM/yyyy}</td>
                         </tr>
                         <tr>

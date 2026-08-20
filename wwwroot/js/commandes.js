@@ -32,8 +32,63 @@ async function chargerCommandes() {
             },
             pager: {
                 showPageSizeSelector: true,
-                allowedPageSizes: [5, 10, 20],
+                allowedPageSizes: [5, 10, 20, 50],
                 showInfo: true
+            },
+            export: {
+                enabled: true,
+                formats: ['xlsx', 'pdf'],
+                allowExportSelectedData: false
+            },
+            onExporting: function (e) {
+                const fileName = "Liste_Commandes";
+                if (e.format === 'xlsx') {
+                    if (typeof ExcelJS === 'undefined') {
+                        showToast("La bibliothèque ExcelJS est requise pour l'export Excel.", true);
+                        return;
+                    }
+                    const workbook = new ExcelJS.Workbook();
+                    const worksheet = workbook.addWorksheet('Commandes');
+
+                    DevExpress.excelExporter.exportDataGrid({
+                        component: e.component,
+                        worksheet: worksheet,
+                        autoFilterEnabled: true,
+                        customizeCell: function (options) {
+                            const { gridCell, excelCell } = options;
+                            if (gridCell.rowType === 'header') {
+                                excelCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+                                excelCell.fill = {
+                                    type: 'pattern',
+                                    pattern: 'solid',
+                                    fgColor: { argb: 'FF1E40AF' }
+                                };
+                                excelCell.alignment = { vertical: 'middle', horizontal: 'center' };
+                            }
+                        }
+                    }).then(function () {
+                        workbook.xlsx.writeBuffer().then(function (buffer) {
+                            saveAs(new Blob([buffer], { type: 'application/octet-stream' }), `${fileName}.xlsx`);
+                        });
+                    });
+                    e.cancel = true;
+                } else if (e.format === 'pdf') {
+                    if (!window.jspdf || !window.jspdf.jsPDF) {
+                        showToast("La bibliothèque jsPDF est requise pour l'export PDF.", true);
+                        return;
+                    }
+                    const { jsPDF } = window.jspdf;
+                    const doc = new jsPDF({ orientation: 'landscape' });
+
+                    DevExpress.pdfExporter.exportDataGrid({
+                        jsPDFDocument: doc,
+                        component: e.component,
+                        indent: 5
+                    }).then(function () {
+                        doc.save(`${fileName}.pdf`);
+                    });
+                    e.cancel = true;
+                }
             },
             columns: [
                 {
@@ -77,6 +132,7 @@ async function chargerCommandes() {
                 {
                     caption: "Actions",
                     alignment: "center",
+                    allowExporting: false,
                     cellTemplate: renderCommandeActions
                 }
             ]

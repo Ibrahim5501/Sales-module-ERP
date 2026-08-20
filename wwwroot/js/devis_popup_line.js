@@ -170,9 +170,9 @@ function initPopupConfigDevisLigne() {
                         itemType: "simple",
                         colSpan: 2,
                         template: () => {
-                            return $('<div id="apercu-ligne-devis" style="background:var(--bg-card,#1e2130);border-radius:8px;padding:10px 14px;margin-bottom:4px;display:flex;align-items:center;justify-content:space-between;">')
-                                .append($('<span style="font-size:12px;color:var(--text-muted,#8892a4);">').text('Sous-total HT estimé :'))
-                                .append($('<strong id="apercu-ligne-devis-val" style="font-size:15px;color:var(--accent,#60a5fa);">').text('0,000 TND'));
+                            return $('<div id="apercu-ligne-devis" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 16px; margin-bottom:4px; display:flex; align-items:center; justify-content:space-between;">')
+                                .append($('<span style="font-size:13px; font-weight:600; color:#475569;"><i class="fa-solid fa-calculator" style="margin-right:6px; color:#64748b;"></i>Sous-total HT estimé :</span>'))
+                                .append($('<strong id="apercu-ligne-devis-val" style="font-size:14.5px; font-weight:700; color:#1e293b;">').text('0,000 TND'));
                         }
                     },
 
@@ -184,7 +184,6 @@ function initPopupConfigDevisLigne() {
                         editorType: "dxNumberBox",
                         editorOptions: {
                             min: 0,
-                            value: 0,
                             onValueChanged: () => majApercuLigneDevis()
                         }
                     },
@@ -200,7 +199,6 @@ function initPopupConfigDevisLigne() {
                             ],
                             valueExpr: "value",
                             displayExpr: "text",
-                            value: "Pourcentage",
                             onValueChanged: () => majApercuLigneDevis()
                         }
                     },
@@ -235,7 +233,16 @@ function initPopupConfigDevisLigne() {
                             valueExpr: "value",
                             displayExpr: "text",
                             placeholder: "-- Sélectionner une plage horaire --",
-                            showClearButton: true
+                            showClearButton: true,
+                            onValueChanged(e) {
+                                const selectedEmission = e.value || "";
+                                if (selectedEmission) {
+                                    const matchingPlage = (plagesHorairesData || []).find(p => `${p.nom} (${p.heureDebut}-${p.heureFin})` === selectedEmission || p.nom === selectedEmission);
+                                    configLigneFormInstance.updateData("nomPlage", matchingPlage ? matchingPlage.nom : selectedEmission.split(" (")[0]);
+                                } else {
+                                    configLigneFormInstance.updateData("nomPlage", "");
+                                }
+                            }
                         }
                     }
                 ]
@@ -281,10 +288,17 @@ function ouvrirPopupConfigDevisLigne(rowIndex = null) {
 
     if (!configLigneFormInstance) return;
 
-    // Refresh spot list
+    // Refresh spot list and emission list
     const prodEditor = configLigneFormInstance.getEditor("produitId");
     if (prodEditor) {
         prodEditor.option("dataSource", (produitsData || []).filter(p => p.actif !== false));
+    }
+    const emissionEditor = configLigneFormInstance.getEditor("emission");
+    if (emissionEditor) {
+        emissionEditor.option("dataSource", (plagesHorairesData || []).map(p => ({
+            value: `${p.nom} (${p.heureDebut}-${p.heureFin})`,
+            text:  `${p.nom} (${p.heureDebut}-${p.heureFin})`
+        })));
     }
 
     if (rowIndex !== null && internalDevisLines[rowIndex]) {
@@ -301,7 +315,7 @@ function ouvrirPopupConfigDevisLigne(rowIndex = null) {
             varianteId:        line.varianteId || null,
             nomSpot:           line.nomSpot    || "",
             nomVariante:       line.nomVariante || "",
-            nomPlage:          line.nomPlage   || "",
+            nomPlage:          line.nomPlage   || (line.emission ? line.emission.split(" (")[0] : ""),
             prixUniversitaire: line.prixUniversitaire,
             dureeSecondes:     line.dureeSecondes || 30,
             quantite:          line.quantite  || 1,
@@ -346,19 +360,26 @@ function validerLigneDevisDepuisPopup() {
     const data = configLigneFormInstance.option("formData");
     const spot = (produitsData || []).find(p => p.id_Produit === data.produitId);
 
+    const emissionVal = data.emission || "";
+    let nomPlageVal = data.nomPlage || "";
+    if (emissionVal && !nomPlageVal) {
+        const matchingPlage = (plagesHorairesData || []).find(p => `${p.nom} (${p.heureDebut}-${p.heureFin})` === emissionVal || p.nom === emissionVal);
+        nomPlageVal = matchingPlage ? matchingPlage.nom : emissionVal.split(" (")[0];
+    }
+
     const lineItem = {
         produitId:         data.produitId,
         varianteId:        data.varianteId  || null,
-        nomSpot:           spot ? spot.designation : (data.nomSpot || ""),
-        nomVariante:       data.nomVariante || (spot ? spot.designation : ""),
-        nomPlage:          data.nomPlage    || "",
+        nomSpot:           spot ? spot.designation : (data.nomSpot || "Spot Publicitaire"),
+        nomVariante:       spot ? spot.designation : (data.nomVariante || "Spot Publicitaire"),
+        nomPlage:          nomPlageVal,
         prixUniversitaire: data.prixUniversitaire || 0,
         dureeSecondes:     data.dureeSecondes  || 30,
         quantite:          data.quantite       || 1,
         remise:            data.remise         || 0,
         typeRemise:        data.typeRemise      || "Pourcentage",
         TauxTVA:           data.TauxTVA !== undefined ? data.TauxTVA : 19,
-        emission:          data.emission || ""
+        emission:          emissionVal
     };
 
     if (currentEditingLineIndex !== null && currentEditingLineIndex >= 0) {

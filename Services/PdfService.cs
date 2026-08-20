@@ -118,7 +118,7 @@ namespace example2.Services
             boxY += 16;
             gfx.DrawString($"Date du devis: {devis.DateDevis:dd/MM/yyyy}", fontBody, new XSolidBrush(textColor), margin + 10, boxY);
             boxY += 14;
-            gfx.DrawString($"Validité jusqu'au: {devis.DateValidite:dd/MM/yyyy}", fontBody, new XSolidBrush(textColor), margin + 10, boxY);
+            gfx.DrawString($"Date d'échéance: {devis.DateValidite:dd/MM/yyyy}", fontBody, new XSolidBrush(textColor), margin + 10, boxY);
             boxY += 14;
             gfx.DrawString($"Statut: {devis.Statut}", fontBody, new XSolidBrush(textColor), margin + 10, boxY);
             boxY += 14;

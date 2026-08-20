@@ -49,8 +49,63 @@ async function chargerDevis() {
             },
             pager: {
                 showPageSizeSelector: true,
-                allowedPageSizes: [5, 10, 20],
+                allowedPageSizes: [5, 10, 20, 50],
                 showInfo: true
+            },
+            export: {
+                enabled: true,
+                formats: ['xlsx', 'pdf'],
+                allowExportSelectedData: false
+            },
+            onExporting: function (e) {
+                const fileName = "Liste_Devis";
+                if (e.format === 'xlsx') {
+                    if (typeof ExcelJS === 'undefined') {
+                        showToast("La bibliothèque ExcelJS est requise pour l'export Excel.", true);
+                        return;
+                    }
+                    const workbook = new ExcelJS.Workbook();
+                    const worksheet = workbook.addWorksheet('Devis');
+
+                    DevExpress.excelExporter.exportDataGrid({
+                        component: e.component,
+                        worksheet: worksheet,
+                        autoFilterEnabled: true,
+                        customizeCell: function (options) {
+                            const { gridCell, excelCell } = options;
+                            if (gridCell.rowType === 'header') {
+                                excelCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+                                excelCell.fill = {
+                                    type: 'pattern',
+                                    pattern: 'solid',
+                                    fgColor: { argb: 'FF1E40AF' }
+                                };
+                                excelCell.alignment = { vertical: 'middle', horizontal: 'center' };
+                            }
+                        }
+                    }).then(function () {
+                        workbook.xlsx.writeBuffer().then(function (buffer) {
+                            saveAs(new Blob([buffer], { type: 'application/octet-stream' }), `${fileName}.xlsx`);
+                        });
+                    });
+                    e.cancel = true;
+                } else if (e.format === 'pdf') {
+                    if (!window.jspdf || !window.jspdf.jsPDF) {
+                        showToast("La bibliothèque jsPDF est requise pour l'export PDF.", true);
+                        return;
+                    }
+                    const { jsPDF } = window.jspdf;
+                    const doc = new jsPDF({ orientation: 'landscape' });
+
+                    DevExpress.pdfExporter.exportDataGrid({
+                        jsPDFDocument: doc,
+                        component: e.component,
+                        indent: 5
+                    }).then(function () {
+                        doc.save(`${fileName}.pdf`);
+                    });
+                    e.cancel = true;
+                }
             },
             columns: [
                 {
@@ -88,10 +143,10 @@ async function chargerDevis() {
                 },
                 {
                     dataField: "dateValidite",
-                    caption: "Validité",
+                    caption: "Date d'échéance",
                     dataType: "date",
                     format: "dd/MM/yyyy",
-                    width: 100
+                    width: 120
                 },
                 {
                     dataField: "statut",
@@ -117,6 +172,7 @@ async function chargerDevis() {
                 {
                     caption: "Actions",
                     alignment: "center",
+                    allowExporting: false,
                     cellTemplate: renderDevisActions
                 }
             ]
@@ -353,7 +409,7 @@ async function ouvrirDetailDevis(id) {
                     <div><span style="color:var(--text-muted);">N° Devis :</span> <strong>${d.numeroDevis || 'N/A'}</strong></div>
                     <div><span style="color:var(--text-muted);">Statut :</span> <span class="badge ${badgeClass}">${badgeLabel}</span></div>
                     <div><span style="color:var(--text-muted);">Date :</span> <strong>${dateDevis}</strong></div>
-                    <div><span style="color:var(--text-muted);">Validité :</span> <strong>${dateValidite}</strong></div>
+                    <div><span style="color:var(--text-muted);">Date d'échéance :</span> <strong>${dateValidite}</strong></div>
                     <div><span style="color:var(--text-muted);">Créé par :</span> <strong>${d.createdByUsername || 'N/A'}</strong></div>
                     <div><span style="color:var(--text-muted);">Mode Paiement :</span> <strong>${d.modePaiement || 'Virement Bancaire'}</strong></div>
                     <div><span style="color:var(--text-muted);">Période Campagne :</span> <strong>${(d.dateDebutDiffusion || d.dateFinDiffusion) ? `Du ${d.dateDebutDiffusion ? new Date(d.dateDebutDiffusion).toLocaleDateString('fr-FR') : '...'} au ${d.dateFinDiffusion ? new Date(d.dateFinDiffusion).toLocaleDateString('fr-FR') : '...'}` : 'Non restreinte'}</strong></div>
@@ -491,6 +547,7 @@ async function ouvrirEditionDevis(id) {
             produitId: l.id_Produit,
             nomVariante: l.designation || l.description || 'Spot',
             nomSpot: l.designation || l.description || 'Spot',
+            nomPlage: l.emission ? l.emission.split(" (")[0] : '',
             prixUniversitaire: l.prixUniversitaire || 0,
             dureeSecondes: l.dureeSecondes || 30,
             quantite: l.quantite || 1,
@@ -509,23 +566,37 @@ async function ouvrirEditionDevis(id) {
         popup.option("title", `Modifier le Devis ${d.numeroDevis || '#' + currentEditingDevisId}`);
         popup.show();
 
+        // Determine condition de paiement
+        let condPaiement = "30 jours";
+        if (d.dateValidite && d.dateDevis) {
+            const diffTime = new Date(d.dateValidite).getTime() - new Date(d.dateDevis).getTime();
+            const diffDays = Math.round(diffTime / (1000 * 3600 * 24));
+            if (diffDays <= 0) condPaiement = "Comptant";
+            else if (diffDays <= 15) condPaiement = "15 jours";
+            else if (diffDays <= 30) condPaiement = "30 jours";
+            else if (diffDays <= 45) condPaiement = "45 jours";
+            else if (diffDays <= 60) condPaiement = "60 jours";
+            else if (diffDays <= 90) condPaiement = "90 jours";
+        }
+
         // Fill header form
         const form = $("#dx-form-devis-header").dxForm("instance");
         if (form) {
-            const clientEditor = form.getEditor("clientId");
-            if (clientEditor) clientEditor.option("dataSource", clientsData || []);
-
             form.option("formData", {
                 clientId: d.id_Partenaire,
                 adresseFacturation: d.adresseFacturation || '',
                 adresseLivraison: d.adresseLivraison || '',
                 modePaiement: d.modePaiement || 'Virement Bancaire',
+                conditionPaiement: condPaiement,
                 remiseGlobale: d.remiseGlobale || 0,
                 typeRemiseGlobale: d.typeRemiseGlobale || 'Pourcentage',
                 dateDebutDiffusion: d.dateDebutDiffusion ? new Date(d.dateDebutDiffusion) : null,
                 dateFinDiffusion: d.dateFinDiffusion ? new Date(d.dateFinDiffusion) : null,
                 dateValidite: d.dateValidite ? new Date(d.dateValidite) : new Date(new Date().setDate(new Date().getDate() + 30))
             });
+
+            updateRemiseGlobaleLabel(d.typeRemiseGlobale || 'Pourcentage');
+            setTimeout(() => updateRemiseGlobaleLabel(d.typeRemiseGlobale || 'Pourcentage'), 50);
         }
 
         // Update grid with existing lines
@@ -546,6 +617,32 @@ async function ouvrirEditionDevis(id) {
 }
 
 
+function updateRemiseGlobaleLabel(type) {
+    const isMontant = (type === "MontantFixe");
+    const newText = isMontant ? "Remise avec montant" : "Remise Globale";
+
+    const formInst = $("#dx-form-devis-header").dxForm("instance");
+    if (formInst) {
+        try {
+            formInst.itemOption("remiseGlobale", "label", { text: newText });
+        } catch (e) {}
+        try {
+            const editor = formInst.getEditor("remiseGlobale");
+            if (editor && editor.element()) {
+                editor.element().closest(".dx-field-item").find(".dx-field-item-label-text").text(newText);
+            }
+        } catch (e) {}
+    }
+
+    $("#dx-form-devis-header .dx-field-item").each(function() {
+        const $item = $(this);
+        const labelText = $item.find(".dx-field-item-label-text").text().trim();
+        if (labelText === "Remise Globale" || labelText === "Remise avec montant" || $item.find("input[name='remiseGlobale']").length) {
+            $item.find(".dx-field-item-label-text").text(newText);
+        }
+    });
+}
+
 // --- POPUP CREATION DEVIS ---
 function initPopupDevis() {
     $("#popup-devis").dxPopup({
@@ -557,6 +654,18 @@ function initPopupDevis() {
         deferRendering: false,
         dragEnabled: true,
         showCloseButton: true,
+        onShowing() {
+            // Force reload the client CustomStore each time the popup opens
+            setTimeout(() => {
+                const formInst = $("#dx-form-devis-header").dxForm("instance");
+                if (!formInst) return;
+                const clientEditor = formInst.getEditor("clientId");
+                if (clientEditor) {
+                    const ds = clientEditor.getDataSource();
+                    if (ds) ds.reload();
+                }
+            }, 0);
+        },
         contentTemplate: (container) => {
             container.css("overflow-y", "auto");
             const form = $("<div id='dx-form-devis-header'>").appendTo(container);
@@ -567,6 +676,7 @@ function initPopupDevis() {
                     adresseFacturation: "",
                     adresseLivraison: "",
                     modePaiement: "Virement Bancaire",
+                    conditionPaiement: "30 jours",
                     remiseGlobale: 0,
                     typeRemiseGlobale: "Pourcentage",
                     dateDebutDiffusion: null,
@@ -581,18 +691,27 @@ function initPopupDevis() {
                         label: { text: "Client" },
                         editorType: "dxSelectBox",
                         editorOptions: {
-                            dataSource: clientsData || [],
+                            dataSource: new DevExpress.data.CustomStore({
+                                key: "id_Partenaire",
+                                loadMode: "raw",
+                                load: () => Promise.resolve(clientsData || [])
+                            }),
                             valueExpr: "id_Partenaire",
-                            displayExpr: item => item ? `${item.nom} (${item.entreprise})` : "",
+                            displayExpr: item => {
+                                if (!item) return "";
+                                const nom = item.nom || item.Nom || "";
+                                const ent = item.entreprise || item.Entreprise || "";
+                                return ent ? `${nom} (${ent})` : nom;
+                            },
                             searchEnabled: true,
                             placeholder: "-- Sélectionner le client --",
                             onValueChanged(e) {
-                                const client = (clientsData || []).find(c => c.id_Partenaire === e.value);
+                                const client = (clientsData || []).find(c => (c.id_Partenaire || c.Id_Partenaire) === e.value);
                                 if (!client) return;
                                 const formInst = $("#dx-form-devis-header").dxForm("instance");
                                 if (formInst) {
-                                    formInst.updateData("adresseFacturation", client.adresse || "");
-                                    formInst.updateData("adresseLivraison", client.adresse || "");
+                                    formInst.updateData("adresseFacturation", client.adresse || client.Adresse || "");
+                                    formInst.updateData("adresseLivraison", client.adresse || client.Adresse || "");
                                 }
                             }
                         },
@@ -642,9 +761,35 @@ function initPopupDevis() {
                         }
                     },
                     {
+                        dataField: "conditionPaiement",
+                        colSpan: 1,
+                        label: { text: "Condition de paiement" },
+                        editorType: "dxSelectBox",
+                        editorOptions: {
+                            dataSource: ["Comptant", "15 jours", "30 jours", "45 jours", "60 jours", "90 jours"],
+                            placeholder: "-- Sélectionner la condition --",
+                            onValueChanged(e) {
+                                const formInst = $("#dx-form-devis-header").dxForm("instance");
+                                if (!formInst) return;
+                                const now = new Date();
+                                let days = 30;
+                                if (e.value === "Comptant") days = 0;
+                                else if (e.value === "15 jours") days = 15;
+                                else if (e.value === "30 jours") days = 30;
+                                else if (e.value === "45 jours") days = 45;
+                                else if (e.value === "60 jours") days = 60;
+                                else if (e.value === "90 jours") days = 90;
+
+                                const newDate = new Date();
+                                newDate.setDate(now.getDate() + days);
+                                formInst.updateData("dateValidite", newDate);
+                            }
+                        }
+                    },
+                    {
                         dataField: "dateValidite",
                         colSpan: 1,
-                        label: { text: "Date de validité" },
+                        label: { text: "Date d'échéance" },
                         editorType: "dxDateBox",
                         editorOptions: {
                             type: "date",
@@ -652,18 +797,7 @@ function initPopupDevis() {
                             useMaskBehavior: true,
                             min: new Date()
                         },
-                        validationRules: [{ type: "required", message: "La date de validité est obligatoire." }]
-                    },
-                    {
-                        dataField: "remiseGlobale",
-                        colSpan: 1,
-                        label: { text: "Remise Globale" },
-                        editorType: "dxNumberBox",
-                        editorOptions: {
-                            min: 0,
-                            value: 0,
-                            onValueChanged() { recalculerTotauxDevisPopup(); }
-                        }
+                        validationRules: [{ type: "required", message: "La date d'échéance est obligatoire." }]
                     },
                     {
                         dataField: "typeRemiseGlobale",
@@ -677,7 +811,23 @@ function initPopupDevis() {
                             ],
                             valueExpr: "value",
                             displayExpr: "text",
-                            value: "Pourcentage",
+                            onValueChanged(e) {
+                                const formInst = $("#dx-form-devis-header").dxForm("instance");
+                                if (formInst) {
+                                    formInst.updateData("typeRemiseGlobale", e.value);
+                                }
+                                updateRemiseGlobaleLabel(e.value);
+                                recalculerTotauxDevisPopup();
+                            }
+                        }
+                    },
+                    {
+                        dataField: "remiseGlobale",
+                        colSpan: 1,
+                        label: { text: "Remise Globale" },
+                        editorType: "dxNumberBox",
+                        editorOptions: {
+                            min: 0,
                             onValueChanged() { recalculerTotauxDevisPopup(); }
                         }
                     },
@@ -772,9 +922,11 @@ function initPopupDevis() {
                         cellTemplate: (container, options) => {
                             const row = options.data;
                             if (!row) return;
+                            const spotName = row.nomSpot || row.nomVariante || 'Spot';
+                            const plageBadge = row.emission || row.nomPlage;
                             $('<div>')
-                                .append($('<strong>').text(row.nomVariante || row.nomSpot || 'N/A'))
-                                .append(row.nomPlage ? $('<span class="badge badge-blue" style="margin-left:6px;font-size:10px;">').text(row.nomPlage) : '')
+                                .append($('<strong>').text(spotName))
+                                .append(plageBadge ? $('<span class="badge badge-blue" style="margin-left:6px;font-size:10px;">').text(plageBadge) : '')
                                 .appendTo(container);
                         }
                     },
@@ -930,16 +1082,12 @@ function ouvrirNouveauDevisPopup() {
 
     const form = $("#dx-form-devis-header").dxForm("instance");
     if (form) {
-        const clientEditor = form.getEditor("clientId");
-        if (clientEditor) {
-            clientEditor.option("dataSource", clientsData || []);
-        }
-
         const defaultHeaderData = {
             clientId: null,
             adresseFacturation: "",
             adresseLivraison: "",
             modePaiement: "Virement Bancaire",
+            conditionPaiement: "30 jours",
             remiseGlobale: 0,
             typeRemiseGlobale: "Pourcentage",
             dateDebutDiffusion: null,
@@ -948,6 +1096,8 @@ function ouvrirNouveauDevisPopup() {
         };
 
         form.option("formData", defaultHeaderData);
+        updateRemiseGlobaleLabel('Pourcentage');
+        setTimeout(() => updateRemiseGlobaleLabel('Pourcentage'), 50);
         if (typeof form.resetValidation === "function") {
             form.resetValidation();
         }

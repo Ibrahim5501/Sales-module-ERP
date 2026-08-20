@@ -10,7 +10,7 @@
 //   articles.js    - Articles & catégories
 //   devis.js       - Devis
 //   livraisons.js  - Livraisons
-//   settings.js    - Paramètres PDF & Entreprise
+//   settings.js    - Paramètres & Entreprise
 // ============================================================
 
 $(document).ready(() => {

@@ -245,12 +245,80 @@ function initGridPlanificationSpots() {
         filterRow: { visible: true },
         headerFilter: { visible: true },
         sorting: { mode: "multiple" },
-        export: { enabled: true, fileName: "Planification_Spots_Publicitaires" },
+        export: {
+            enabled: true,
+            formats: ['xlsx', 'pdf'],
+            allowExportSelectedData: false
+        },
+        onExporting: function (e) {
+            const fileName = "Planification_Spots_Publicitaires";
+            if (e.format === 'xlsx') {
+                if (typeof ExcelJS === 'undefined') {
+                    showToast("La bibliothèque ExcelJS est requise pour l'export Excel.", true);
+                    return;
+                }
+                const workbook = new ExcelJS.Workbook();
+                const worksheet = workbook.addWorksheet('Spots Publicitaires');
+
+                DevExpress.excelExporter.exportDataGrid({
+                    component: e.component,
+                    worksheet: worksheet,
+                    autoFilterEnabled: true,
+                    customizeCell: function (options) {
+                        const { gridCell, excelCell } = options;
+                        if (gridCell.rowType === 'header') {
+                            excelCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+                            excelCell.fill = {
+                                type: 'pattern',
+                                pattern: 'solid',
+                                fgColor: { argb: 'FF1E40AF' }
+                            };
+                            excelCell.alignment = { vertical: 'middle', horizontal: 'center' };
+                        } else if (gridCell.rowType === 'data') {
+                            if (gridCell.column.dataField === 'statut') {
+                                const val = gridCell.value;
+                                if (val === STATUTS_SPOT.DIFFUSE) {
+                                    excelCell.font = { color: { argb: 'FF15803D' }, bold: true };
+                                } else if (val === STATUTS_SPOT.ANNULE) {
+                                    excelCell.font = { color: { argb: 'FFDC2626' }, bold: true };
+                                } else {
+                                    excelCell.font = { color: { argb: 'FFD97706' }, bold: true };
+                                }
+                            }
+                        }
+                    }
+                }).then(function () {
+                    workbook.xlsx.writeBuffer().then(function (buffer) {
+                        saveAs(new Blob([buffer], { type: 'application/octet-stream' }), `${fileName}.xlsx`);
+                    });
+                });
+                e.cancel = true;
+            } else if (e.format === 'pdf') {
+                if (!window.jspdf || !window.jspdf.jsPDF) {
+                    showToast("La bibliothèque jsPDF est requise pour l'export PDF.", true);
+                    return;
+                }
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF({ orientation: 'landscape' });
+
+                DevExpress.pdfExporter.exportDataGrid({
+                    jsPDFDocument: doc,
+                    component: e.component,
+                    indent: 5
+                }).then(function () {
+                    doc.save(`${fileName}.pdf`);
+                });
+                e.cancel = true;
+            }
+        },
         columns: [
             {
                 dataField: "numeroCommande",
                 caption: "N° Bon de Commande",
                 width: 200,
+                calculateCellValue: function (data) {
+                    return data.numeroCommande || (data.id_Commande ? 'CMD-' + data.id_Commande : '');
+                },
                 cellTemplate: function (container, options) {
                     const row = options.data;
                     $("<span>")
@@ -276,6 +344,12 @@ function initGridPlanificationSpots() {
             {
                 dataField: "designationProduit",
                 caption: "Spot Publicitaire",
+                calculateCellValue: function (data) {
+                    if (data.codeProduit) {
+                        return `${data.designationProduit || 'Spot'} (${data.codeProduit})`;
+                    }
+                    return data.designationProduit || 'Spot';
+                },
                 cellTemplate: function (container, options) {
                     const row = options.data;
                     $("<div>")
@@ -301,14 +375,22 @@ function initGridPlanificationSpots() {
             {
                 dataField: "dureeSecondes",
                 caption: "Durée",
+                dataType: "number",
                 width: 100,
                 alignment: "center",
-                cellTemplate: (c, o) => $("<span>").addClass("spot-duration-pill").html(`<i class="fa-solid fa-stopwatch"></i> ${o.value}s`).appendTo(c)
+                calculateCellValue: function (data) {
+                    return (data.dureeSecondes || 30) + 's';
+                },
+                cellTemplate: (c, o) => $("<span>").addClass("spot-duration-pill").html(`<i class="fa-solid fa-stopwatch"></i> ${o.value}`).appendTo(c)
             },
             {
                 dataField: "nomPlageHoraire",
                 caption: "Plage Horaire",
                 width: 200,
+                calculateCellValue: function (data) {
+                    if (!data.nomPlageHoraire) return "Libre";
+                    return `${data.nomPlageHoraire} (${data.heureDebutPlage || ''}-${data.heureFinPlage || ''})`;
+                },
                 cellTemplate: function (container, options) {
                     const row = options.data;
                     if (!options.value) {
@@ -336,6 +418,7 @@ function initGridPlanificationSpots() {
                 caption: "Actions",
                 width: 160,
                 alignment: "center",
+                allowExporting: false,
                 cellTemplate: function (container, options) {
                     const row = options.data;
                     const wrap = $("<div style='display:flex; gap:4px; justify-content:center;'>").appendTo(container);
@@ -639,6 +722,7 @@ function afficherModalPlanificationCommande(commande, spots) {
 // 4. VUE GRILLE DES SPOTS DE LA COMMANDE
 // ----------------------------------------------------------------------------
 function initGridCommandeSpots(spots, commande) {
+    const numCmd = commande ? (commande.numeroCommande || `CMD-${commande.id_Commande}`) : 'Commande';
     $("#grid-commande-spots").dxDataGrid({
         dataSource: spots,
         keyExpr: "id_PlanificationSpot",
@@ -647,15 +731,82 @@ function initGridCommandeSpots(spots, commande) {
         allowColumnResizing: true,
         rowAlternationEnabled: true,
         paging: { pageSize: 8 },
+        export: {
+            enabled: true,
+            formats: ['xlsx', 'pdf'],
+            allowExportSelectedData: false
+        },
+        onExporting: function (e) {
+            const fileName = `Planification_Spots_${numCmd}`;
+            if (e.format === 'xlsx') {
+                if (typeof ExcelJS === 'undefined') {
+                    showToast("La bibliothèque ExcelJS est requise pour l'export Excel.", true);
+                    return;
+                }
+                const workbook = new ExcelJS.Workbook();
+                const worksheet = workbook.addWorksheet('Spots');
+
+                DevExpress.excelExporter.exportDataGrid({
+                    component: e.component,
+                    worksheet: worksheet,
+                    autoFilterEnabled: true,
+                    customizeCell: function (options) {
+                        const { gridCell, excelCell } = options;
+                        if (gridCell.rowType === 'header') {
+                            excelCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+                            excelCell.fill = {
+                                type: 'pattern',
+                                pattern: 'solid',
+                                fgColor: { argb: 'FF1E40AF' }
+                            };
+                            excelCell.alignment = { vertical: 'middle', horizontal: 'center' };
+                        } else if (gridCell.rowType === 'data') {
+                            if (gridCell.column.dataField === 'statut') {
+                                const val = gridCell.value;
+                                if (val === STATUTS_SPOT.DIFFUSE) {
+                                    excelCell.font = { color: { argb: 'FF15803D' }, bold: true };
+                                } else if (val === STATUTS_SPOT.ANNULE) {
+                                    excelCell.font = { color: { argb: 'FFDC2626' }, bold: true };
+                                } else {
+                                    excelCell.font = { color: { argb: 'FFD97706' }, bold: true };
+                                }
+                            }
+                        }
+                    }
+                }).then(function () {
+                    workbook.xlsx.writeBuffer().then(function (buffer) {
+                        saveAs(new Blob([buffer], { type: 'application/octet-stream' }), `${fileName}.xlsx`);
+                    });
+                });
+                e.cancel = true;
+            } else if (e.format === 'pdf') {
+                if (!window.jspdf || !window.jspdf.jsPDF) {
+                    showToast("La bibliothèque jsPDF est requise pour l'export PDF.", true);
+                    return;
+                }
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF({ orientation: 'landscape' });
+
+                DevExpress.pdfExporter.exportDataGrid({
+                    jsPDFDocument: doc,
+                    component: e.component,
+                    indent: 5
+                }).then(function () {
+                    doc.save(`${fileName}.pdf`);
+                });
+                e.cancel = true;
+            }
+        },
         columns: [
             {
                 dataField: "designationProduit",
                 caption: "Spot",
+                calculateCellValue: (data) => data.designationProduit || 'Spot',
                 cellTemplate: (c, o) => $("<strong>").text(o.value || 'Spot').appendTo(c)
             },
             {
                 dataField: "dateHeureDiffusion",
-                caption: "Date & Heure",
+                caption: "Date & Heure Diffusion",
                 dataType: "datetime",
                 format: "dd/MM/yyyy HH:mm:ss",
                 sortOrder: "asc",
@@ -672,7 +823,8 @@ function initGridCommandeSpots(spots, commande) {
                 caption: "Durée",
                 width: 85,
                 alignment: "center",
-                cellTemplate: (c, o) => $("<span>").addClass("spot-duration-pill").html(`<i class="fa-solid fa-stopwatch"></i> ${o.value}s`).appendTo(c)
+                calculateCellValue: (data) => (data.dureeSecondes || 30) + 's',
+                cellTemplate: (c, o) => $("<span>").addClass("spot-duration-pill").html(`<i class="fa-solid fa-stopwatch"></i> ${o.value}`).appendTo(c)
             },
             {
                 dataField: "statut",
@@ -690,6 +842,7 @@ function initGridCommandeSpots(spots, commande) {
                 caption: "Changer Statut",
                 width: 150,
                 alignment: "center",
+                allowExporting: false,
                 cellTemplate: function (container, options) {
                     const row  = options.data;
                     const wrap = $("<div style='display:flex; gap:3px; justify-content:center; flex-direction: column'>").appendTo(container);
@@ -711,6 +864,7 @@ function initGridCommandeSpots(spots, commande) {
                 caption: "Action",
                 width: 90,
                 alignment: "center",
+                allowExporting: false,
                 cellTemplate: function (container, options) {
                     $("<button class='btn btn-xs btn-outline-danger' title='Supprimer'>")
                         .html('<i class="fa-solid fa-trash"></i>')
@@ -849,19 +1003,21 @@ function initFormNouveauSpot(commande, prefilledDate) {
         },
         items: [
             {
-                dataField: "id_Produit",
+                dataField: "id_CommandeLigne",
                 colSpan: 1,
                 label: { text: "Spot Publicitaire" },
                 editorType: "dxSelectBox",
                 editorOptions: {
                     dataSource: produitsOptions,
-                    valueExpr: "id_Produit",
+                    valueExpr: "id_CommandeLigne",
                     displayExpr: "label",
+                    value: defaultLigneId,
                     onValueChanged(e) {
-                        const opt = produitsOptions.find(o => o.id_Produit === e.value);
+                        const opt = produitsOptions.find(o => o.id_CommandeLigne === e.value);
                         if (opt) {
                             const inst = formEl.dxForm("instance");
                             inst.updateData("id_CommandeLigne", opt.id_CommandeLigne);
+                            inst.updateData("id_Produit", opt.id_Produit);
                             inst.updateData("plageHoraireInfo", opt.plageInfo);
                         }
                     }
@@ -887,7 +1043,46 @@ function initFormNouveauSpot(commande, prefilledDate) {
                     displayFormat: "dd/MM/yyyy HH:mm:ss",
                     value: defaultDate
                 },
-                validationRules: [{ type: "required", message: "Date/heure requise." }]
+                validationRules: [
+                    { type: "required", message: "Date et heure requises." },
+                    {
+                        type: "custom",
+                        message: "L'heure sélectionnée ne respecte pas la plage horaire autorisée.",
+                        validationCallback: function (e) {
+                            const formInst = $("#dx-form-nouveau-spot").dxForm("instance");
+                            if (!formInst) return true;
+                            const data = formInst.option("formData");
+                            const plageStr = data.plageHoraireInfo;
+                            if (!plageStr || plageStr.includes("Aucune restriction")) return true;
+
+                            const match = plageStr.match(/(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/);
+                            if (!match) return true;
+
+                            const [_, startStr, endStr] = match;
+                            const dt = new Date(e.value);
+                            if (isNaN(dt.getTime())) return true;
+
+                            const [sh, sm] = startStr.split(':').map(Number);
+                            const [eh, em] = endStr.split(':').map(Number);
+                            const startMin = sh * 60 + sm;
+                            const endMin = eh * 60 + em;
+                            const curMin = dt.getHours() * 60 + dt.getMinutes();
+
+                            if (endMin > startMin) {
+                                if (curMin < startMin || curMin > endMin) {
+                                    e.rule.message = `L'heure (${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}) doit être comprise dans la plage horaire [${startStr} - ${endStr}].`;
+                                    return false;
+                                }
+                            } else if (endMin < startMin) {
+                                if (curMin < startMin && curMin > endMin) {
+                                    e.rule.message = `L'heure (${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}) doit être comprise dans la plage horaire de nuit [${startStr} - ${endStr}].`;
+                                    return false;
+                                }
+                            }
+                            return true;
+                        }
+                    }
+                ]
             },
             {
                 dataField: "statut",
@@ -938,16 +1133,28 @@ function enregistrerNouveauSpotCommande(commandeId) {
 
     makeRequest('/api/PlanificationSpots', 'POST', payload)
         .then(() => {
-            showToast("Diffusion du spot planifiée avec succès !", "success");
+            showToast("Diffusion du spot planifiée avec succès !");
             $("#form-ajout-spot-container").slideUp();
             ouvrirPopupPlanificationCommande(commandeId);
             chargerPlanificationSpots();
         })
         .catch(err => {
-            const msg = (err && err.responseJSON && err.responseJSON.message)
-                ? err.responseJSON.message
-                : "Erreur lors de la planification du spot.";
-            showToast(msg, "error");
+            let msg = "Erreur lors de la planification du spot.";
+            try {
+                if (err && err.message) {
+                    const jsonIdx = err.message.indexOf("{");
+                    if (jsonIdx >= 0) {
+                        const parsed = JSON.parse(err.message.substring(jsonIdx));
+                        if (parsed && parsed.message) msg = parsed.message;
+                        else msg = err.message;
+                    } else {
+                        msg = err.message;
+                    }
+                }
+            } catch (e) {
+                msg = err.message || msg;
+            }
+            showToast(msg, true);
         });
 }
 
@@ -957,17 +1164,24 @@ function enregistrerNouveauSpotCommande(commandeId) {
 function majStatutSpotQuick(spotId, nouveauStatut) {
     makeRequest(`/api/PlanificationSpots/${spotId}/statut`, 'PUT', { statut: nouveauStatut })
         .then(() => {
-            showToast(`Statut mis à jour : ${nouveauStatut}`, "info");
+            showToast(`Statut mis à jour : ${nouveauStatut}`);
             chargerPlanificationSpots();
             if (currentCommandePlanning) {
                 ouvrirPopupPlanificationCommande(currentCommandePlanning.id_Commande);
             }
         })
         .catch(err => {
-            const msg = (err && err.responseJSON && err.responseJSON.message)
-                ? err.responseJSON.message
-                : "Impossible de modifier le statut.";
-            showToast(msg, "error");
+            let msg = "Impossible de modifier le statut.";
+            try {
+                if (err && err.message) {
+                    const jsonIdx = err.message.indexOf("{");
+                    if (jsonIdx >= 0) {
+                        const parsed = JSON.parse(err.message.substring(jsonIdx));
+                        if (parsed && parsed.message) msg = parsed.message;
+                    }
+                }
+            } catch (e) {}
+            showToast(msg, true);
         });
 }
 
@@ -983,14 +1197,14 @@ function supprimerSpotPlanifie(spotId) {
 
         makeRequest(`/api/PlanificationSpots/${spotId}`, 'DELETE')
             .then(() => {
-                showToast("Planification de spot supprimée.", "success");
+                showToast("Planification de spot supprimée.");
                 chargerPlanificationSpots();
                 if (currentCommandePlanning) {
                     ouvrirPopupPlanificationCommande(currentCommandePlanning.id_Commande);
                 }
             })
             .catch(err => {
-                showToast("Erreur lors de la suppression.", "error");
+                showToast("Erreur lors de la suppression.", true);
             });
     });
 }

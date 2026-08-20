@@ -90,14 +90,22 @@ function initToast() {
 }
 
 function showToast(message, isError = false) {
+    const isRealError = (isError === true || isError === "error" || isError === "danger");
+    if (isRealError) {
+        if (typeof DevExpress !== "undefined" && DevExpress.ui && DevExpress.ui.dialog) {
+            DevExpress.ui.dialog.alert(message || "Une erreur est survenue.", "Erreur");
+        } else {
+            alert(message || "Une erreur est survenue.");
+        }
+        return;
+    }
+    // Success / Info: Floating toast only, never a blocking popup
     if (toastInstance) {
         toastInstance.option({
             message: message,
-            type: isError ? "error" : "success"
+            type: (isError === "info" || isError === "warning") ? isError : "success"
         });
         toastInstance.show();
-    } else {
-        alert(message);
     }
 }
 

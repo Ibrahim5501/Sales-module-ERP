@@ -1,4 +1,4 @@
-// --- MODULE PARAMÈTRES PDF & ENTREPRISE ---
+// --- MODULE PARAMÈTRES & ENTREPRISE ---
 
 async function chargerCompanySettings() {
     try {

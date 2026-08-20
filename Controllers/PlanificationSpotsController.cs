@@ -124,23 +124,48 @@ namespace example2.Controllers
                 : (await _context.Produits.Where(p => p.Id_Produit == dto.Id_Produit).Select(p => (int?)p.DureeSecondes).FirstOrDefaultAsync() ?? 30);
 
             // Resolve PlageHoraire strictly from the spot (ArticleVariante or CommandeLigne.Emission or Produit)
-            int? idPlage = dto.Id_PlageHoraire;
-            if (!idPlage.HasValue && cmdLigne != null && !string.IsNullOrEmpty(cmdLigne.Emission))
-            {
-                var plageMatch = await _context.PlagesHoraires.FirstOrDefaultAsync(p => cmdLigne.Emission.Contains(p.Nom));
-                if (plageMatch != null) idPlage = plageMatch.Id_PlageHoraire;
-            }
-
-            if (!idPlage.HasValue)
-            {
-                var variante = await _context.ArticlesVariantes.FirstOrDefaultAsync(av => av.Id_Produit == dto.Id_Produit && av.Actif);
-                if (variante != null && variante.Id_PlageHoraire > 0) idPlage = variante.Id_PlageHoraire;
-            }
-
             PlageHoraire? plage = null;
+            int? idPlage = dto.Id_PlageHoraire;
+            var allPlages = await _context.PlagesHoraires.Where(p => p.Actif).ToListAsync();
+
             if (idPlage.HasValue)
             {
-                plage = await _context.PlagesHoraires.FirstOrDefaultAsync(p => p.Id_PlageHoraire == idPlage.Value);
+                plage = allPlages.FirstOrDefault(p => p.Id_PlageHoraire == idPlage.Value);
+            }
+
+            if (plage == null && cmdLigne != null && !string.IsNullOrWhiteSpace(cmdLigne.Emission))
+            {
+                string emission = cmdLigne.Emission.Trim();
+                plage = allPlages.FirstOrDefault(p => emission.Contains(p.Nom, StringComparison.OrdinalIgnoreCase) || p.Nom.Contains(emission, StringComparison.OrdinalIgnoreCase));
+
+                if (plage == null)
+                {
+                    var match = System.Text.RegularExpressions.Regex.Match(emission, @"(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})");
+                    if (match.Success)
+                    {
+                        string hDeb = match.Groups[1].Value.PadLeft(5, '0');
+                        string hFin = match.Groups[2].Value.PadLeft(5, '0');
+                        plage = allPlages.FirstOrDefault(p => p.HeureDebut == hDeb && p.HeureFin == hFin);
+                        if (plage == null)
+                        {
+                            plage = new PlageHoraire { Nom = emission, HeureDebut = hDeb, HeureFin = hFin, Actif = true };
+                        }
+                    }
+                }
+            }
+
+            if (plage == null)
+            {
+                var variante = await _context.ArticlesVariantes.FirstOrDefaultAsync(av => av.Id_Produit == dto.Id_Produit && av.Actif);
+                if (variante != null && variante.Id_PlageHoraire > 0)
+                {
+                    plage = allPlages.FirstOrDefault(p => p.Id_PlageHoraire == variante.Id_PlageHoraire);
+                }
+            }
+
+            if (plage != null && plage.Id_PlageHoraire > 0)
+            {
+                idPlage = plage.Id_PlageHoraire;
             }
 
             // 1. Restriction par la plage horaire désignée sur le spot
@@ -245,8 +270,42 @@ namespace example2.Controllers
             int? idPlage = existing.Id_PlageHoraire;
 
             PlageHoraire? plage = null;
+            var allPlages = await _context.PlagesHoraires.Where(p => p.Actif).ToListAsync();
+
             if (idPlage.HasValue)
-                plage = await _context.PlagesHoraires.FirstOrDefaultAsync(p => p.Id_PlageHoraire == idPlage.Value);
+            {
+                plage = allPlages.FirstOrDefault(p => p.Id_PlageHoraire == idPlage.Value);
+            }
+
+            if (plage == null && existing.CommandeLigne != null && !string.IsNullOrWhiteSpace(existing.CommandeLigne.Emission))
+            {
+                string emission = existing.CommandeLigne.Emission.Trim();
+                plage = allPlages.FirstOrDefault(p => emission.Contains(p.Nom, StringComparison.OrdinalIgnoreCase) || p.Nom.Contains(emission, StringComparison.OrdinalIgnoreCase));
+
+                if (plage == null)
+                {
+                    var match = System.Text.RegularExpressions.Regex.Match(emission, @"(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})");
+                    if (match.Success)
+                    {
+                        string hDeb = match.Groups[1].Value.PadLeft(5, '0');
+                        string hFin = match.Groups[2].Value.PadLeft(5, '0');
+                        plage = allPlages.FirstOrDefault(p => p.HeureDebut == hDeb && p.HeureFin == hFin);
+                        if (plage == null)
+                        {
+                            plage = new PlageHoraire { Nom = emission, HeureDebut = hDeb, HeureFin = hFin, Actif = true };
+                        }
+                    }
+                }
+            }
+
+            if (plage == null)
+            {
+                var variante = await _context.ArticlesVariantes.FirstOrDefaultAsync(av => av.Id_Produit == existing.Id_Produit && av.Actif);
+                if (variante != null && variante.Id_PlageHoraire > 0)
+                {
+                    plage = allPlages.FirstOrDefault(p => p.Id_PlageHoraire == variante.Id_PlageHoraire);
+                }
+            }
 
             if (plage != null && plage.Actif)
             {
@@ -342,6 +401,9 @@ namespace example2.Controllers
         private static (bool isValid, string errorMessage) ValidateTimeWindow(
             DateTime dateHeure, int dureeSecondes, PlageHoraire plage)
         {
+            if (string.IsNullOrWhiteSpace(plage.HeureDebut) || string.IsNullOrWhiteSpace(plage.HeureFin))
+                return (true, string.Empty);
+
             if (!TimeSpan.TryParse(plage.HeureDebut, out var startRange) ||
                 !TimeSpan.TryParse(plage.HeureFin, out var endRange))
                 return (true, string.Empty);
@@ -349,16 +411,40 @@ namespace example2.Controllers
             TimeSpan timeOfDayStart = dateHeure.TimeOfDay;
             TimeSpan timeOfDayEnd   = dateHeure.AddSeconds(dureeSecondes).TimeOfDay;
 
+            bool valid;
             if (endRange > startRange)
             {
-                if (timeOfDayStart < startRange || timeOfDayStart > endRange ||
-                    (timeOfDayEnd > endRange && timeOfDayEnd > timeOfDayStart))
+                // Plage standard (ex: 08:00 - 12:00 ou 20:00 - 22:00)
+                valid = (timeOfDayStart >= startRange && timeOfDayStart <= endRange);
+                if (valid && timeOfDayEnd > endRange && timeOfDayEnd > timeOfDayStart)
                 {
-                    return (false,
-                        $"L'heure de diffusion ({dateHeure:HH:mm:ss}) et sa durée ({dureeSecondes}s) " +
-                        $"doivent être strictement incluses dans la plage horaire désignée '{plage.Nom}' " +
-                        $"({plage.HeureDebut} - {plage.HeureFin}).");
+                    valid = false;
                 }
+            }
+            else if (endRange < startRange)
+            {
+                // Plage à cheval sur minuit (ex: 22:00 - 02:00)
+                valid = (timeOfDayStart >= startRange || timeOfDayStart <= endRange);
+                if (valid)
+                {
+                    if (timeOfDayStart >= startRange && timeOfDayEnd < timeOfDayStart && timeOfDayEnd > endRange)
+                        valid = false;
+                    else if (timeOfDayStart <= endRange && timeOfDayEnd > endRange)
+                        valid = false;
+                }
+            }
+            else
+            {
+                // 00:00 - 00:00 (24h)
+                valid = true;
+            }
+
+            if (!valid)
+            {
+                return (false,
+                    $"L'heure de diffusion ({dateHeure:HH:mm:ss}) et sa durée ({dureeSecondes}s) " +
+                    $"doivent être strictement incluses dans la plage horaire désignée '{plage.Nom}' " +
+                    $"({plage.HeureDebut} - {plage.HeureFin}).");
             }
 
             return (true, string.Empty);
